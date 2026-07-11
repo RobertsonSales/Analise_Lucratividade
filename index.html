@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LabDash — Análise de Resultado por Cliente</title>
+<title>Grupo Labmedic — Análise de Lucratividade</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Syne:wght@700;800&family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 /* ─── TOKENS ────────────────────────────────────── */
 :root {
@@ -93,104 +93,351 @@ body {
 #upload-screen {
   min-height: 100vh;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
-  background: radial-gradient(ellipse at 20% 50%, rgba(59,130,246,.06) 0%, transparent 60%),
-              radial-gradient(ellipse at 80% 20%, rgba(16,185,129,.05) 0%, transparent 50%),
-              var(--bg);
+  padding: clamp(1.5rem, 4vw, 3rem);
+  background:
+    radial-gradient(circle at top left, rgba(59,130,246,.14), transparent 28%),
+    radial-gradient(circle at top right, rgba(139,92,246,.12), transparent 26%),
+    linear-gradient(180deg, rgba(10,14,22,.96) 0%, rgba(13,17,23,1) 38%, rgba(12,16,24,1) 100%);
+  position: relative;
+  overflow: hidden;
+}
+#upload-screen::before,
+#upload-screen::after {
+  content: '';
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(60px);
+  opacity: .16;
+  pointer-events: none;
+}
+#upload-screen::before {
+  width: 240px;
+  height: 240px;
+  background: #3B82F6;
+  top: -60px;
+  left: -70px;
+}
+#upload-screen::after {
+  width: 280px;
+  height: 280px;
+  background: #8B5CF6;
+  right: -90px;
+  bottom: -90px;
+}
+
+.upload-shell {
+  width: min(100%, 1120px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.6rem;
+  position: relative;
+  z-index: 1;
 }
 
 .brand-mark {
-  font-family: 'Syne', sans-serif;
-  font-size: 1rem;
-  font-weight: 800;
-  letter-spacing: .15em;
+  font-family: 'Manrope', sans-serif;
+  font-size: .76rem;
+  font-weight: 700;
+  letter-spacing: .28em;
   text-transform: uppercase;
-  color: var(--accent);
-  opacity: .8;
-  margin-bottom: 2.5rem;
-}
-
-.upload-hero h1 {
-  font-family: 'Syne', sans-serif;
-  font-size: clamp(2rem, 5vw, 3.5rem);
-  font-weight: 800;
-  line-height: 1.1;
+  color: rgba(191,219,254,.88);
   text-align: center;
-  background: linear-gradient(135deg, #E6EDF3 30%, #3B82F6 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
   margin-bottom: 1rem;
 }
 
-.upload-hero p {
-  color: var(--muted);
-  font-size: 1.05rem;
+.upload-hero {
+  max-width: 860px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .65rem;
   text-align: center;
-  max-width: 480px;
-  line-height: 1.6;
-  margin-bottom: 2.5rem;
+}
+
+.upload-hero h1,
+.upload-hero h2 {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 600;
+  letter-spacing: .015em;
+  line-height: .96;
+  color: #F8FAFC;
+}
+
+.upload-hero h1 {
+  font-size: clamp(2.6rem, 6vw, 4.9rem);
+}
+
+.upload-hero h2 {
+  font-size: clamp(1.7rem, 4vw, 3rem);
+  color: rgba(226,232,240,.94);
+}
+
+.upload-hero p {
+  max-width: 760px;
+  font-family: 'Manrope', sans-serif;
+  font-size: clamp(.95rem, 2vw, 1.08rem);
+  line-height: 1.8;
+  color: rgba(203,213,225,.82);
+  text-align: center;
+}
+
+.upload-carousel {
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  mask-image: linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%);
+}
+
+.carousel-track {
+  display: flex;
+  align-items: stretch;
+  gap: 1rem;
+  width: max-content;
+  animation: upload-carousel-scroll 36s linear infinite;
+  will-change: transform;
+}
+
+.upload-carousel:hover .carousel-track {
+  animation-play-state: paused;
+}
+
+.carousel-item {
+  width: clamp(240px, 27vw, 320px);
+  min-height: 232px;
+  border-radius: 24px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(148,163,184,.18);
+  background: var(--surface);
+  box-shadow: 0 20px 45px rgba(2,6,23,.22);
+  flex: 0 0 auto;
+}
+
+.carousel-item img {
+  width: 100%;
+  height: 100%;
+  min-height: 232px;
+  display: block;
+  object-fit: cover;
+  transform: scale(1.02);
+}
+
+.carousel-item::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(2,6,23,.04) 0%, rgba(2,6,23,.12) 36%, rgba(2,6,23,.86) 100%);
+}
+
+.carousel-caption {
+  position: absolute;
+  left: 1.15rem;
+  right: 1.15rem;
+  bottom: 1rem;
+  z-index: 1;
+  text-align: center;
+}
+
+.carousel-caption strong {
+  display: block;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.4rem;
+  color: #F8FAFC;
+  font-weight: 600;
+  margin-bottom: .2rem;
+}
+
+.carousel-caption span {
+  display: block;
+  font-family: 'Manrope', sans-serif;
+  font-size: .78rem;
+  line-height: 1.45;
+  color: rgba(226,232,240,.85);
 }
 
 .drop-zone {
-  width: 100%;
-  max-width: 520px;
-  border: 2px dashed var(--border2);
-  border-radius: var(--radius);
-  padding: 3rem 2rem;
+  width: min(100%, 720px);
+  padding: 1.7rem 1.4rem 1.45rem;
+  border-radius: 28px;
+  border: 1px solid rgba(148,163,184,.16);
+  background: linear-gradient(180deg, rgba(22,27,34,.88) 0%, rgba(17,24,39,.9) 100%);
+  box-shadow: 0 18px 50px rgba(2,6,23,.34);
   text-align: center;
-  cursor: pointer;
-  transition: all .25s ease;
-  background: var(--surface);
+  transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease;
   position: relative;
 }
 .drop-zone:hover, .drop-zone.drag-over {
-  border-color: var(--accent);
-  background: rgba(59,130,246,.06);
-  box-shadow: var(--glow);
+  border-color: rgba(96,165,250,.62);
+  box-shadow: 0 0 0 1px rgba(96,165,250,.18), 0 22px 60px rgba(37,99,235,.18);
+  transform: translateY(-1px);
 }
-.drop-icon {
-  width: 56px; height: 56px;
-  margin: 0 auto 1.25rem;
-  background: linear-gradient(135deg, var(--accent), #8B5CF6);
-  border-radius: 16px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.6rem;
+.drop-zone input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
-.drop-zone h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: .5rem; }
-.drop-zone p  { color: var(--muted); font-size: .9rem; }
-.drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+.upload-button {
+  appearance: none;
+  border: none;
+  border-radius: 999px;
+  padding: .95rem 1.9rem;
+  font-family: 'Manrope', sans-serif;
+  font-size: .95rem;
+  font-weight: 700;
+  color: #F8FAFC;
+  background: linear-gradient(135deg, #2563EB 0%, #3B82F6 55%, #6366F1 100%);
+  box-shadow: 0 16px 28px rgba(37,99,235,.28);
+  cursor: pointer;
+  transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+}
+.upload-button:hover {
+  transform: translateY(-1px) scale(1.01);
+  box-shadow: 0 18px 34px rgba(59,130,246,.34);
+  filter: brightness(1.03);
+}
+
+.upload-note {
+  margin-top: .95rem;
+  font-family: 'Manrope', sans-serif;
+  color: rgba(203,213,225,.78);
+  font-size: .86rem;
+  line-height: 1.65;
+  text-align: center;
+}
 
 .format-pills {
-  display: flex; gap: .5rem; justify-content: center; margin-top: 1.75rem; flex-wrap: wrap;
+  display: flex;
+  gap: .55rem;
+  justify-content: center;
+  margin-top: 1rem;
+  flex-wrap: wrap;
 }
 .pill {
-  font-size: .75rem; font-weight: 500;
-  padding: .25rem .75rem;
+  font-size: .74rem;
+  font-weight: 600;
+  padding: .4rem .8rem;
   border-radius: 999px;
-  background: var(--surface2);
-  color: var(--muted);
-  border: 1px solid var(--border);
+  background: rgba(148,163,184,.08);
+  color: rgba(226,232,240,.85);
+  border: 1px solid rgba(148,163,184,.14);
 }
-.pill.active { background: rgba(59,130,246,.15); color: var(--accent2); border-color: rgba(59,130,246,.4); }
+.pill.active {
+  background: rgba(59,130,246,.16);
+  color: #BFDBFE;
+  border-color: rgba(96,165,250,.34);
+}
 
 .loading-bar {
-  width: 100%; max-width: 520px;
-  height: 4px; background: var(--border);
-  border-radius: 2px; margin-top: 1.5rem;
-  overflow: hidden; display: none;
+  width: min(100%, 520px);
+  height: 5px;
+  background: rgba(51,65,85,.65);
+  border-radius: 999px;
+  margin-top: .25rem;
+  overflow: hidden;
+  display: none;
 }
 .loading-bar-inner {
   height: 100%;
   background: linear-gradient(90deg, var(--accent), var(--green));
-  border-radius: 2px;
+  border-radius: 999px;
   width: 0%;
   transition: width .4s ease;
 }
-#upload-status { color: var(--muted); font-size: .85rem; margin-top: .75rem; text-align: center; }
+#upload-status {
+  color: rgba(203,213,225,.78);
+  font-family: 'Manrope', sans-serif;
+  font-size: .85rem;
+  margin-top: .2rem;
+  text-align: center;
+}
+
+/* ── Carousel image robustness ── */
+.carousel-item {
+  background: linear-gradient(135deg, #1C2230 0%, #222B3A 50%, #1C2230 100%);
+  background-size: 200% 200%;
+  animation: carousel-skeleton 2.2s ease-in-out infinite;
+}
+.carousel-item.img-loaded {
+  animation: none;
+  background: var(--surface);
+}
+.carousel-item img {
+  opacity: 0;
+  transition: opacity .5s ease;
+}
+.carousel-item.img-loaded img {
+  opacity: 1;
+}
+.carousel-item.img-error img {
+  opacity: 1;
+  object-fit: cover;
+  background: #1C2230;
+}
+.carousel-item.img-error {
+  animation: none;
+  background: linear-gradient(135deg, #1C2230, #222B3A);
+}
+@keyframes carousel-skeleton {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes upload-carousel-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(calc(-50% - .5rem)); }
+}
+
+@media (max-width: 768px) {
+  #upload-screen {
+    padding: 1.2rem;
+  }
+
+  .upload-shell {
+    gap: 1.25rem;
+  }
+
+  .upload-hero p {
+    max-width: 92vw;
+    line-height: 1.7;
+  }
+
+  .upload-carousel {
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+
+  .carousel-track {
+    gap: .8rem;
+    animation-duration: 28s;
+  }
+
+  .carousel-item {
+    width: 82vw;
+    min-height: 220px;
+  }
+
+  .drop-zone {
+    width: 100%;
+    border-radius: 22px;
+    padding: 1.4rem 1rem 1.2rem;
+  }
+
+  .upload-button {
+    width: 100%;
+  }
+}
 
 /* ─── DASHBOARD ─────────────────────────────────── */
 #dashboard { display: none; min-height: 100vh; }
@@ -549,6 +796,7 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
 .tag-DIAG { background: rgba(16,185,129,.15); color: #34D399; }
 .tag-NOVATEST   { background: rgba(139,92,246,.15); color: #A78BFA; }
 .tag-QST { background: rgba(245,158,11,.15); color: #FCD34D; }
+.tag-MULTI { background: rgba(148,163,184,.18); color: #CBD5E1; }
 .result-pos { color: var(--green); font-weight: 600; }
 .result-neg { color: var(--red); font-weight: 600; }
 .result-bar-wrap { display: flex; align-items: center; gap: .5rem; }
@@ -764,24 +1012,55 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
 
 /* ─── PARAMS BAR ─────────────────────────────────── */
 .params-bar {
-  display:flex; align-items:center; gap:1rem; flex-wrap:wrap;
+  display:flex; align-items:flex-start; gap:1.25rem; flex-wrap:wrap;
   padding: .85rem 1.5rem;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   position: sticky; top: 58px; z-index: 40;
 }
-.params-label { font-size:.72rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:600; }
-.param-field { display:flex; align-items:center; gap:.5rem; background:var(--surface2); border:1px solid var(--border); padding:.4rem .75rem; border-radius:8px; transition: all .2s ease; }
+.params-label { font-size:.72rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:600; padding-top:.5rem; }
+.param-group { display:flex; flex-direction:column; align-items:flex-start; gap:.4rem; }
+.param-field { display:flex; align-items:center; gap:.5rem; background:var(--surface2); border:1px solid var(--border); padding:.4rem .75rem; border-radius:8px; transition: all .2s ease; white-space:nowrap; }
 .param-field:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
-.param-field label { font-size:.78rem; color:var(--muted); font-weight:500; }
+.param-field label { font-size:.78rem; color:var(--muted); font-weight:500; white-space:nowrap; }
 .param-field input { background:transparent; border:none; outline:none; color:var(--text); font-family:inherit; font-size:.9rem; font-weight:600; width: 6.5rem; text-align:right; }
-.param-field .suffix { color: var(--muted); font-size:.85rem; font-weight:500; }
+.param-field .suffix { color: var(--muted); font-size:.85rem; font-weight:500; white-space:nowrap; }
 .param-field input#input-adm { width: 8.5rem; }
+.param-field input#input-desmarcadas { width: 8.5rem; }
 .adm-progress { width: 60px; height: 4px; background: var(--border); border-radius: 3px; overflow: hidden; margin-left: .4rem; opacity: 0; transition: opacity .15s ease; }
 .adm-progress.active { opacity: 1; }
 .adm-progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), #8B5CF6); transition: width .08s linear; }
-.param-hint { font-size:.72rem; color: var(--dim); margin-left:auto; max-width: 380px; line-height:1.4; }
+.param-caption { font-size:.68rem; color: var(--dim); line-height:1.4; padding: 0 .1rem; max-width: 15.5rem; }
 .params-bar.params-bar-secondary { position: static; top: auto; z-index: auto; border-bottom: 1px dashed var(--border); }
+
+/* ─── CARD: CLIENTES FILTRADOS (ao lado de "Base do Rateio") ───────── */
+.filtered-clients-card {
+  display: flex; flex-direction: column; gap: .35rem;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  padding: .5rem .75rem;
+  max-width: 22rem; min-width: 12rem;
+  box-sizing: border-box;
+}
+.filtered-clients-card .fcc-title {
+  font-size: .68rem; color: var(--muted); font-weight: 600;
+  text-transform: uppercase; letter-spacing: .06em;
+  display: flex; align-items: center; gap: .4rem; white-space: nowrap;
+}
+.filtered-clients-card .fcc-count {
+  background: rgba(59,130,246,.16); color: var(--accent);
+  border-radius: 999px; padding: .05rem .5rem; font-size: .65rem; font-weight: 700;
+}
+.filtered-clients-card .fcc-chips {
+  display: flex; flex-wrap: wrap; gap: .3rem;
+  max-height: 4.8rem; overflow-y: auto; overflow-x: hidden;
+  padding-right: .15rem;
+}
+.filtered-clients-card .fcc-chip {
+  max-width: 11rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.3);
+  color: var(--accent); font-size: .68rem; font-weight: 600;
+  padding: .15rem .5rem; border-radius: 999px; box-sizing: border-box;
+}
 
 @media (max-width: 900px) {
   .charts-grid { grid-template-columns: 1fr; }
@@ -804,7 +1083,7 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
 .loading-pulse { animation: pulse 1.5s ease infinite; }
 
 .dashboard-recalc {
-  position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 1300;
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1300;
   display: none; align-items: center; gap: .85rem;
   padding: .85rem 1rem; border-radius: 14px;
   background: rgba(15,23,42,.94); border: 1px solid rgba(148,163,184,.22);
@@ -815,11 +1094,11 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
 .dashboard-recalc-spinner {
   width: 18px; height: 18px; border-radius: 999px; flex-shrink: 0;
   border: 2px solid rgba(255,255,255,.18); border-top-color: var(--accent);
-  animation: labdashSpin .7s linear infinite;
+  animation: grupoLabmedicSpin .7s linear infinite;
 }
 .dashboard-recalc-title { font-size: .84rem; font-weight: 700; color: #F8FAFC; }
 .dashboard-recalc-sub { font-size: .74rem; color: #94A3B8; margin-top: .12rem; }
-@keyframes labdashSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes grupoLabmedicSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -828,27 +1107,70 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
      UPLOAD SCREEN
      ════════════════════════════════════════ -->
 <div id="upload-screen">
-  <div class="brand-mark">ANÁLISE GERENCIAL FINANCEIRA</div>
-  <div class="upload-hero">
-    <h1>GRUPO LABMEDIC<br>Lucratividade por Cliente</h1>  
-  </div>
-
-  <div class="drop-zone" id="drop-zone">
-    <input type="file" accept=".xlsx,.xls" id="file-input">
-    <div class="drop-icon">📊</div>
-    <h3>Arraste o arquivo aqui</h3>
-    <p>ou clique para selecionar</p>
-    <div class="format-pills" style="margin-top:1rem">
-      <span class="pill active">.xlsx</span>
-      <span class="pill">.xls</span>
-      <span class="pill">Requer abas: Receitas · Inadimplência · Vendas · Aluguéis</span>
+  <div class="upload-shell">
+    <div class="upload-hero">
+      <h1>Grupo LabMedic</h1>
+      <h2>Análise da Lucratividade</h2>
+      <div class="brand-mark">Ambiente criado para a tomada de decisões</div>
     </div>
-  </div>
 
-  <div class="loading-bar" id="loading-bar">
-    <div class="loading-bar-inner" id="loading-progress"></div>
+    <div class="upload-carousel" aria-hidden="true">
+      <div class="carousel-track">
+        <figure class="carousel-item">
+          <img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="https://images.unsplash.com/photo-1581093588401-fbb62a02f120?auto=format&fit=crop&w=1200&q=70" alt="Equipamentos de análise laboratorial organizados em bancada técnica" onload="this.closest('.carousel-item')?.classList.add('img-loaded');" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'><defs><linearGradient id='g' x1='0' x2='1' y1='0' y2='1'><stop offset='0' stop-color='%231C2230'/><stop offset='1' stop-color='%23222B3A'/></linearGradient></defs><rect width='400' height='300' fill='url(%23g)'/><g fill='none' stroke='%233B82F6' stroke-width='2' opacity='0.55'><circle cx='200' cy='135' r='34'/><path d='M186 135h28M200 121v28'/></g><text x='200' y='210' fill='%237D8FA8' font-family='Manrope,Arial,sans-serif' font-size='16' text-anchor='middle'>Imagem indisponível</text></svg>';this.closest('.carousel-item')?.classList.add('img-error');">
+          <figcaption class="carousel-caption">
+            <strong>Precisão analítica</strong>
+            <span>Equipamentos e rotinas que remetem a controle, rastreabilidade e consistência operacional.</span>
+          </figcaption>
+        </figure>
+        <figure class="carousel-item">
+          <img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="https://images.unsplash.com/photo-1579154204601-01588f351e67?auto=format&fit=crop&w=1200&q=70" alt="Profissional técnico atuando em ambiente laboratorial" onload="this.closest('.carousel-item')?.classList.add('img-loaded');" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'><defs><linearGradient id='g' x1='0' x2='1' y1='0' y2='1'><stop offset='0' stop-color='%231C2230'/><stop offset='1' stop-color='%23222B3A'/></linearGradient></defs><rect width='400' height='300' fill='url(%23g)'/><g fill='none' stroke='%233B82F6' stroke-width='2' opacity='0.55'><circle cx='200' cy='135' r='34'/><path d='M186 135h28M200 121v28'/></g><text x='200' y='210' fill='%237D8FA8' font-family='Manrope,Arial,sans-serif' font-size='16' text-anchor='middle'>Imagem indisponível</text></svg>';this.closest('.carousel-item')?.classList.add('img-error');">
+          <figcaption class="carousel-caption">
+            <strong>Atuação técnica</strong>
+            <span>Uma ambientação alinhada ao trabalho dos agentes e à rotina operacional do laboratório.</span>
+          </figcaption>
+        </figure>
+        <figure class="carousel-item">
+          <img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&w=1200&q=70" alt="Procedimentos operacionais e documentação de rotina em laboratório" onload="this.closest('.carousel-item')?.classList.add('img-loaded');" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'><defs><linearGradient id='g' x1='0' x2='1' y1='0' y2='1'><stop offset='0' stop-color='%231C2230'/><stop offset='1' stop-color='%23222B3A'/></linearGradient></defs><rect width='400' height='300' fill='url(%23g)'/><g fill='none' stroke='%233B82F6' stroke-width='2' opacity='0.55'><circle cx='200' cy='135' r='34'/><path d='M186 135h28M200 121v28'/></g><text x='200' y='210' fill='%237D8FA8' font-family='Manrope,Arial,sans-serif' font-size='16' text-anchor='middle'>Imagem indisponível</text></svg>';this.closest('.carousel-item')?.classList.add('img-error');">
+          <figcaption class="carousel-caption">
+            <strong>Rotina padronizada</strong>
+            <span>Referências visuais a POPs, fluxo seguro de trabalho e disciplina de execução.</span>
+          </figcaption>
+        </figure>
+        <figure class="carousel-item" aria-hidden="true">
+          <img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="https://images.unsplash.com/photo-1581093588401-fbb62a02f120?auto=format&fit=crop&w=1200&q=70" alt="" onload="this.closest('.carousel-item')?.classList.add('img-loaded');" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'><defs><linearGradient id='g' x1='0' x2='1' y1='0' y2='1'><stop offset='0' stop-color='%231C2230'/><stop offset='1' stop-color='%23222B3A'/></linearGradient></defs><rect width='400' height='300' fill='url(%23g)'/><g fill='none' stroke='%233B82F6' stroke-width='2' opacity='0.55'><circle cx='200' cy='135' r='34'/><path d='M186 135h28M200 121v28'/></g><text x='200' y='210' fill='%237D8FA8' font-family='Manrope,Arial,sans-serif' font-size='16' text-anchor='middle'>Imagem indisponível</text></svg>';this.closest('.carousel-item')?.classList.add('img-error');">
+          <figcaption class="carousel-caption">
+            <strong>Precisão analítica</strong>
+            <span>Equipamentos e rotinas que remetem a controle, rastreabilidade e consistência operacional.</span>
+          </figcaption>
+        </figure>
+        <figure class="carousel-item" aria-hidden="true">
+          <img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="https://images.unsplash.com/photo-1579154204601-01588f351e67?auto=format&fit=crop&w=1200&q=70" alt="" onload="this.closest('.carousel-item')?.classList.add('img-loaded');" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'><defs><linearGradient id='g' x1='0' x2='1' y1='0' y2='1'><stop offset='0' stop-color='%231C2230'/><stop offset='1' stop-color='%23222B3A'/></linearGradient></defs><rect width='400' height='300' fill='url(%23g)'/><g fill='none' stroke='%233B82F6' stroke-width='2' opacity='0.55'><circle cx='200' cy='135' r='34'/><path d='M186 135h28M200 121v28'/></g><text x='200' y='210' fill='%237D8FA8' font-family='Manrope,Arial,sans-serif' font-size='16' text-anchor='middle'>Imagem indisponível</text></svg>';this.closest('.carousel-item')?.classList.add('img-error');">
+          <figcaption class="carousel-caption">
+            <strong>Atuação técnica</strong>
+            <span>Uma ambientação alinhada ao trabalho dos agentes e à rotina operacional do laboratório.</span>
+          </figcaption>
+        </figure>
+        <figure class="carousel-item" aria-hidden="true">
+          <img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&w=1200&q=70" alt="" onload="this.closest('.carousel-item')?.classList.add('img-loaded');" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'><defs><linearGradient id='g' x1='0' x2='1' y1='0' y2='1'><stop offset='0' stop-color='%231C2230'/><stop offset='1' stop-color='%23222B3A'/></linearGradient></defs><rect width='400' height='300' fill='url(%23g)'/><g fill='none' stroke='%233B82F6' stroke-width='2' opacity='0.55'><circle cx='200' cy='135' r='34'/><path d='M186 135h28M200 121v28'/></g><text x='200' y='210' fill='%237D8FA8' font-family='Manrope,Arial,sans-serif' font-size='16' text-anchor='middle'>Imagem indisponível</text></svg>';this.closest('.carousel-item')?.classList.add('img-error');">
+          <figcaption class="carousel-caption">
+            <strong>Rotina padronizada</strong>
+            <span>Referências visuais a POPs, fluxo seguro de trabalho e disciplina de execução.</span>
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" accept=".xlsx,.xls" id="file-input">
+      <button class="upload-button" type="button" onclick="document.getElementById('file-input').click()">Clique aqui para Importar a planilha</button>
+     </div>
+
+    <div class="loading-bar" id="loading-bar">
+      <div class="loading-bar-inner" id="loading-progress"></div>
+    </div>
+    <div id="upload-status"></div>
   </div>
-  <div id="upload-status"></div>
 </div>
 
 <!-- ════════════════════════════════════════
@@ -858,7 +1180,7 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
 
   <!-- TOPBAR -->
   <div class="topbar">
-    <div class="topbar-brand">LabDash</div>
+    <div class="topbar-brand">Grupo Labmedic</div>
     <div class="topbar-subtitle">Análise de Resultado por Cliente</div>
     <div class="topbar-spacer"></div>
     <div class="topbar-file">📁 <span id="file-name-display">—</span></div>
@@ -943,40 +1265,63 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
   <!-- PARAMS BAR -->
   <div class="params-bar">
     <span class="params-label">Parâmetros</span>
-    <div class="param-field">
-      <label for="input-tax">Impostos</label>
-      <input type="number" id="input-tax" min="0" max="100" step="0.01" value="0" oninput="onParamChange()">
-      <span class="suffix">% do faturamento</span>
+    <div class="param-group">
+      <div class="param-field">
+        <label for="input-tax">Impostos => </label>
+        <input type="number" id="input-tax" min="0" max="100" step="0.01" value="18" oninput=" onParamChange()">
+        <span class="suffix">(%) aplicado </span>
+      </div>
+      <span class="param-caption">Alíquota sobre o faturamento de cada cliente do cenário filtrado.</span>
     </div>
-    <div class="param-field" id="param-field-adm">
-      <label for="input-adm">Despesas Adm</label>
-      <span class="suffix">R$</span>
-      <input type="text" id="input-adm" inputmode="numeric" autocomplete="off" value="0,00" readonly title="Calculado automaticamente a partir das categorias de despesas selecionadas e dos filtros de Ano/Mês">
-      <div class="adm-progress" id="adm-progress"><div class="adm-progress-bar" id="adm-progress-bar"></div></div>
+    <div class="param-group">
+      <div class="param-field" id="param-field-adm">
+        <label for="input-adm">Despesas Adm</label>
+        <span class="suffix">R$</span>
+        <input type="text" id="input-adm" inputmode="numeric" autocomplete="off" value="0,00" readonly title="Calculado automaticamente a partir das categorias de despesas selecionadas e dos filtros de Ano/Mês">
+        <div class="adm-progress" id="adm-progress"><div class="adm-progress-bar" id="adm-progress-bar"></div></div>
+      </div>
+      <span class="param-caption">Soma das categorias <strong>marcadas</strong> em Base do Rateio, rateada por faturamento.</span>
     </div>
-    <span class="param-hint">Rateio proporcional ao <strong>faturamento</strong> de cada cliente, distribuído entre todos os clientes do cenário filtrado (respeita anos, meses, empresas e clientes selecionados). O total de Despesas Adm. é <strong>calculado automaticamente</strong> a partir das categorias selecionadas ao lado, respeitando os filtros de Ano/Mês.</span>
+    <div class="param-group">
+      <div class="param-field" id="param-field-desmarcadas">
+        <label for="input-desmarcadas">Despesas Desmarcadas</label>
+        <span class="suffix">R$</span>
+        <input type="text" id="input-desmarcadas" inputmode="numeric" autocomplete="off" value="0,00" readonly title="Soma automática das categorias de despesas DESMARCADAS no filtro 'Base do Rateio', respeitando os filtros de Empresa/Ano/Mês">
+        <div class="adm-progress" id="desmarcadas-progress"><div class="adm-progress-bar" id="desmarcadas-progress-bar"></div></div>
+      </div>
+      <span class="param-caption">Soma das categorias <strong>desmarcadas</strong> em Base do Rateio — atualizada em tempo real, fora do rateio.</span>
+    </div>
   </div>
 
   <!-- CONTAINER: CATEGORIAS DE DESPESAS ADMINISTRATIVAS -->
   <div class="params-bar params-bar-secondary" id="categoria-despesas-bar">
     <span class="params-label">Base do Rateio</span>
-    <div class="ms-wrapper" id="ms-categoria-wrap">
-      <div class="ms-trigger" id="ms-categoria-trigger" onclick="toggleDropdown('categoria')">
-        <span>🏷️</span>
-        <span id="ms-categoria-label">Todas as Categorias</span>
-        <span class="ms-badge" id="ms-categoria-badge" style="display:none"></span>
-        <span class="icon">▾</span>
-      </div>
-      <div class="ms-dropdown" id="ms-categoria-dropdown">
-        <div class="ms-search"><input type="text" placeholder="🔍 Buscar categoria…" oninput="filterOptions('categoria',this.value)"></div>
-        <div class="ms-actions">
-          <button onclick="selectAll('categoria')">Selecionar todas</button>
-          <button onclick="clearAll('categoria')">Limpar</button>
+    <div class="param-group">
+      <div class="ms-wrapper" id="ms-categoria-wrap">
+        <div class="ms-trigger" id="ms-categoria-trigger" onclick="toggleDropdown('categoria')">
+          <span>🏷️</span>
+          <span id="ms-categoria-label">Todas as Categorias</span>
+          <span class="ms-badge" id="ms-categoria-badge" style="display:none"></span>
+          <span class="icon">▾</span>
         </div>
+        <div class="ms-dropdown" id="ms-categoria-dropdown">
+          <div class="ms-search"><input type="text" placeholder="🔍 Buscar categoria…" oninput="filterOptions('categoria',this.value)"></div>
+          <div class="ms-actions">
+            <button onclick="selectAll('categoria')">Selecionar todas</button>
+            <button onclick="clearAll('categoria')">Limpar</button>
+          </div>
         <div class="ms-options" id="ms-categoria-options"></div>
+        </div>
       </div>
+      <span class="param-caption">Selecione, na aba <strong>Despesas</strong>, as categorias que compõem <strong>Despesas Adm.</strong> Recalcula ao marcar/desmarcar, respeitando Ano/Mês.</span>
     </div>
-    <span class="param-hint">Selecione, na aba <strong>Despesas</strong>, quais categorias (Natureza) compõem o volume de <strong>Despesas Adm. R$</strong> a ratear. O total é recalculado automaticamente sempre que as categorias ou os filtros de <strong>Ano/Mês</strong> mudarem.</span>
+
+    <!-- Card: clientes filtrados pelo usuário (exibido somente quando há um
+         subconjunto de clientes selecionado no filtro "Cliente"). -->
+    <div class="filtered-clients-card" id="filtered-clients-card" style="display:none">
+      <span class="fcc-title">👤 Clientes filtrados <span class="fcc-count" id="filtered-clients-count"></span></span>
+      <div class="fcc-chips" id="filtered-clients-chips"></div>
+    </div>
   </div>
 
 
@@ -1188,11 +1533,28 @@ let charts   = {};   // Chart.js instances
 let filters  = { empresa: new Set(), ano: new Set(), mes: new Set(), cliente: new Set(), categoria: new Set() };
 let allValues = { empresa: [], ano: [], mes: [], cliente: [], categoria: [] };
 let tableState = { data: [], search: '', sort: 'mes', dir: 'desc', page: 1, pageSize: Number.MAX_SAFE_INTEGER };
-let params = { taxPct: 0, adminTotal: 0 };  // impostos e despesas administrativas
+let params = { taxPct: 0, adminTotal: 0, adminTotalBase: 0, desmarcadasTotal: 0, refFat: 0 };  // impostos, despesas administrativas, despesas desmarcadas e faturamento de referência (universo Empresa/Ano/Mês, ignora cliente)
 let clienteSearchQuery = '';   // busca imediata no filtro de clientes
 let clientModalState = null;
 let dashboardRefreshState = { token: 0, shownAt: 0 };
 const ADMIN_IMPACT_FILTERS = new Set(['empresa','ano','mes','categoria']);
+/* Categorias que devem iniciar DESMARCADAS no filtro "Base do Rateio"
+   (ver REQ-002). Comparação é feita via norm() para tolerar variações
+   de caixa/espaços vindas da planilha. */
+const DEFAULT_UNCHECKED_CATEGORIES = [
+  'AQUIS. DE IMÓVEIS',
+  'AQUIS. EQUIPAMENTOS',
+  'AQUIS. DE PERIFÉRICOS',
+  'AQUIS. IMÓVEL',
+  'DISTRATOS',
+  'FINANC. EQUIPAMENTOS',
+  'ITENS DO MOBILIÁRIO',
+  'RETIRADAS/DIVIDENDOS',
+  'IMPOSTOS/CONTRIB.',
+  'TRIBUTOS MUNICIPAIS',
+  'TRIBUTOS ESTADUAIS',
+  'TRIBUTOS FEDERAIS',
+];
 const MESES = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const EMPRESA_COLORS = {
   'LABMEDIC':   '#3B82F6',
@@ -1209,7 +1571,7 @@ function toggleTheme() {
   const cur = document.body.getAttribute('data-theme') || 'dark';
   const next = cur === 'dark' ? 'light' : 'dark';
   document.body.setAttribute('data-theme', next);
-  try { localStorage.setItem('labdash-theme', next); } catch(e){}
+  try { localStorage.setItem('grupo-labmedic-theme', next); } catch(e){}
   // re-render charts para pegar novas cores
   if (rawData.length) {
     Object.values(charts).forEach(c => { try { c.destroy(); } catch(e){} });
@@ -1219,7 +1581,7 @@ function toggleTheme() {
 }
 (function initTheme() {
   let saved = 'dark';
-  try { saved = localStorage.getItem('labdash-theme') || 'dark'; } catch(e){}
+  try { saved = localStorage.getItem('grupo-labmedic-theme') || 'dark'; } catch(e){}
   document.body.setAttribute('data-theme', saved);
 })();
 
@@ -1231,10 +1593,30 @@ function cssVar(name) {
 /* ══════════════════════════════════════════════════════
    PARAMS (Impostos + Despesas Administrativas)
 ══════════════════════════════════════════════════════ */
-function onParamChange() {
-  const t = parseFloat(document.getElementById('input-tax').value);
+let taxChangeDebounceTimer = null;
+/* Lê o valor atual do campo (%) Impostos para dentro de params.taxPct.
+   Precisa ser chamada tanto no oninput (edição manual) quanto logo após o
+   carregamento da planilha — sem isso, o percentual inicial exibido no
+   campo (18%) nunca entrava no cálculo, pois só era lido dentro de
+   onParamChange(), disparado apenas pelo evento oninput do usuário. */
+function syncTaxParamFromInput() {
+  const el = document.getElementById('input-tax');
+  if (!el) return;
+  const t = parseFloat(el.value);
   params.taxPct = isFinite(t) ? t : 0;
-  if (rawData.length) renderDashboard();
+}
+function onParamChange() {
+  syncTaxParamFromInput();
+  if (!rawData.length) return;
+  // Debounce: espera uma pequena pausa na digitação antes de recalcular e
+  // exibir a mensagem de progresso, evitando que ela pisque a cada tecla.
+  if (taxChangeDebounceTimer) clearTimeout(taxChangeDebounceTimer);
+  taxChangeDebounceTimer = setTimeout(() => {
+    requestDashboardRefresh({
+      showLoader: true,
+      message: 'Recarregando impostos e indicadores do cenário…'
+    });
+  }, 300);
 }
 
 /* ── Máscara BR de moeda para o campo de despesas administrativas ── */
@@ -1281,9 +1663,10 @@ function updateAdmDisplay(value) {
 
 /* Soma o volume da aba "Despesas" para as categorias (Natureza) marcadas
    no filtro "Base do Rateio", respeitando os filtros de Empresa, Ano e Mês
-   do cenário. Esta é a variável global "Despesas Adm. R$" — ela é
-   recalculada sempre que o usuário altera categorias ou filtros que afetam
-   o conjunto de despesas elegíveis ao rateio. */
+   do cenário. Este é o TOTAL BASE (global) de Despesas Adm. — não sofre
+   influência do filtro de Clientes, pois os lançamentos administrativos
+   não são por cliente. É o "montante disponível" antes de qualquer
+   proração pelo escopo de clientes selecionado. */
 function computeDespesasAdmTotal() {
   if (!despesasRaw.length) return 0;
   let total = 0;
@@ -1300,19 +1683,111 @@ function computeDespesasAdmTotal() {
   return total;
 }
 
-/* Recalcula a variável global de Despesas Adm. e sincroniza a exibição
-   no campo somente-leitura. Chamada sempre que o dashboard é redesenhado
-   (ou seja, a cada mudança de filtro, incluindo categorias e Ano/Mês). */
-function recomputeAdminTotal() {
-  const total = computeDespesasAdmTotal();
-  const changed = total !== params.adminTotal;
-  params.adminTotal = total;
-  if (changed) updateAdmDisplay(total);
-  else {
-    const el = document.getElementById('input-adm');
-    if (el) el.value = formatBRCurrency(total);
+/* ── Campo "Despesas Desmarcadas": somatório dos lançamentos da aba
+   "Despesas" cujas categorias (Natureza) NÃO estejam selecionadas no
+   filtro "Base do Rateio", respeitando os mesmos filtros de Empresa/Ano/
+   Mês usados no cálculo de Despesas Adm. É o complemento de
+   computeDespesasAdmTotal(): juntos, os dois campos somam o total bruto
+   de todas as categorias dentro do cenário Empresa/Ano/Mês filtrado. ── */
+let desmarcadasProgressTimer = null;
+function updateDesmarcadasDisplay(value) {
+  const el = document.getElementById('input-desmarcadas');
+  if (el) el.value = formatBRCurrency(value);
+
+  const wrap = document.getElementById('desmarcadas-progress');
+  const bar  = document.getElementById('desmarcadas-progress-bar');
+  if (wrap && bar) {
+    wrap.classList.add('active');
+    bar.style.width = '0%';
+    if (desmarcadasProgressTimer) clearInterval(desmarcadasProgressTimer);
+    let pct = 0;
+    desmarcadasProgressTimer = setInterval(() => {
+      pct = Math.min(100, pct + 25);
+      bar.style.width = pct + '%';
+      if (pct >= 100) {
+        clearInterval(desmarcadasProgressTimer);
+        desmarcadasProgressTimer = null;
+        setTimeout(() => { wrap.classList.remove('active'); bar.style.width = '0%'; }, 250);
+      }
+    }, 40);
+  }
+}
+
+function computeDespesasDesmarcadasTotal() {
+  if (!despesasRaw.length) return 0;
+  let total = 0;
+  for (const r of despesasRaw) {
+    if (
+      !filters.categoria.has(r.natureza) &&
+      filters.empresa.has(r.empresa) &&
+      filters.ano.has(r.year) &&
+      filters.mes.has(r.month)
+    ) {
+      total += r.valor;
+    }
   }
   return total;
+}
+
+function recomputeDesmarcadasTotal() {
+  const total = computeDespesasDesmarcadasTotal();
+  params.desmarcadasTotal = total;
+  updateDesmarcadasDisplay(total);
+  return total;
+}
+
+/* Faturamento de REFERÊNCIA: soma do faturamento respeitando Empresa/Ano/Mês
+   mas IGNORANDO o filtro de Clientes (e a busca imediata por cliente).
+   Serve como denominador para prorratear o total global de Despesas Adm.
+   ao subconjunto de clientes selecionado. Assim, ao filtrar clientes, o
+   montante administrativo atribuído reflete apenas a fatia do faturamento
+   que os clientes filtrados representam dentro do universo Empresa/Ano/Mês. */
+function computeReferenceFaturamento() {
+  if (!rawData.length) return 0;
+  let total = 0;
+  for (const r of rawData) {
+    if (
+      filters.empresa.has(r.empresa) &&
+      filters.ano.has(r.year) &&
+      filters.mes.has(r.month)
+    ) {
+      total += r.faturamento;
+    }
+  }
+  return total;
+}
+
+/* Recalcula:
+   - params.adminTotalBase: total global bruto das despesas administrativas
+                            (Empresa/Ano/Mês/Categoria) — INDEPENDENTE do
+                            filtro de clientes.
+   - params.refFat:         faturamento de REFERÊNCIA (universo Empresa/Ano/
+                            Mês, ignorando o filtro de clientes). É o
+                            denominador do rateio.
+   - params.adminTotal:     valor EFETIVO atribuído ao conjunto de clientes
+                            atualmente filtrado, calculado como
+                            base × (faturamento_dos_clientes_filtrados /
+                                    faturamento_de_referência).
+   Assim, ao filtrar 1 único cliente, ele recebe APENAS a fatia
+   proporcional ao seu faturamento dentro do universo — nunca o total
+   apurado para os demais filtros. */
+function recomputeAdminTotal() {
+  const base        = computeDespesasAdmTotal();
+  const refFat      = computeReferenceFaturamento();
+  const filteredFat = getFiltered().reduce((s,r)=>s+r.faturamento, 0);
+  const effective   = refFat > 0 ? base * (filteredFat / refFat) : 0;
+
+  params.adminTotalBase = base;
+  params.refFat         = refFat;
+  const changed = effective !== params.adminTotal;
+  params.adminTotal = effective;
+
+  if (changed) updateAdmDisplay(effective);
+  else {
+    const el = document.getElementById('input-adm');
+    if (el) el.value = formatBRCurrency(effective);
+  }
+  return effective;
 }
 
 /* Calcula bases globais do cenário filtrado (base de rateio = Faturamento) */
@@ -1330,31 +1805,29 @@ function countCompetencias(data) {
 }
 
 /* Valor efetivo de despesas administrativas para o cenário filtrado.
-   Agora a "Despesas Adm. R$" é uma variável global calculada diretamente
-   a partir dos lançamentos da aba "Despesas" cujas categorias estejam
-   marcadas no filtro "Base do Rateio", já restrita às Empresas, Anos e
-   Meses selecionados — portanto nenhuma proração adicional é necessária.
-   O parâmetro filteredData é mantido apenas por compatibilidade com as
-   demais funções que já o repassam. */
+   Já calculado por recomputeAdminTotal() com base na proporção
+   (faturamento filtrado / faturamento de referência) x total global. */
 function effectiveAdminTotal(filteredData) {
-  const total = computeDespesasAdmTotal();
-  params.adminTotal = total;
-  return total;
+  return params.adminTotal || 0;
 }
 
-/* Retorna { impostos, adm, resultadoAjustado } para uma linha agregada,
-   dado o total global da base de rateio (faturamento) do cenário filtrado
-   e o valor efetivo de despesas administrativas do cenário. O rateio é
-   distribuído entre TODOS os clientes filtrados, proporcionalmente ao
-   faturamento de cada um. */
+/* Retorna { impostos, adm, resultadoAjustado } para uma linha agregada.
+   O rateio das despesas administrativas usa SEMPRE o denominador de
+   referência (faturamento do universo Empresa/Ano/Mês, sem filtro de
+   cliente) e o total BASE (bruto) de despesas administrativas. Assim, cada
+   cliente/linha carrega estritamente a sua fatia proporcional do bolo
+   administrativo, independentemente de quantos clientes estejam filtrados
+   — inclusive quando apenas um cliente está selecionado. */
 function adjRow(row, globalBase, admEffective) {
-  const rowBase = (row.fat || 0);
-  const impostos = rowBase * (params.taxPct / 100);
-  const admTotal = (admEffective !== undefined) ? admEffective : (params.adminTotal || 0);
-  const adm = globalBase > 0 ? admTotal * (rowBase / globalBase) : 0;
+  const rowBase   = (row.fat || 0);
+  const impostos  = rowBase * (params.taxPct / 100);
+  const admBase   = params.adminTotalBase || 0;
+  const refFat    = params.refFat || 0;
+  const adm       = refFat > 0 ? admBase * (rowBase / refFat) : 0;
   const resAjustado = (row.res || 0) - impostos - adm;
   return { impostos, adm, resAjustado };
 }
+
 
 /* ══════════════════════════════════════════════════════
    FILE IMPORT
@@ -1383,12 +1856,14 @@ function handleFile(file) {
     return;
   }
   loadingBar.style.display = 'block';
+  showDashboardRecalc('Lendo arquivo…', 'Importando planilha');
   setStatus('Lendo arquivo…', 10);
   document.getElementById('file-name-display').textContent = file.name;
 
   const reader = new FileReader();
   reader.onload = e => {
     try {
+      updateImportOverlay('Processando abas…');
       setStatus('Processando abas…', 30);
       // cellDates:true → datas viram objetos Date nativos no SheetJS
       const wb = XLSX.read(e.target.result, {
@@ -1397,24 +1872,38 @@ function handleFile(file) {
         cellNF: false,
         cellText: false
       });
+      updateImportOverlay('Extraindo Receitas…');
       setStatus('Extraindo Receitas…', 45);
       const data = processWorkbook(wb);
+      updateImportOverlay('Extraindo Despesas…');
       setStatus('Extraindo Despesas…', 60);
       despesasRaw = processDespesas(wb);
+      updateImportOverlay('Calculando resultados…');
       setStatus('Calculando resultados…', 75);
       rawData = data;
       if (!rawData.length) throw new Error('Nenhum dado encontrado. Verifique se as abas Receitas, Inadimplência, Vendas e Aluguéis existem e têm dados.');
+      // ✅ Correção: sem isto, o percentual inicial do campo (%) Impostos
+      // (ex.: 18%) só entrava no cálculo depois que o usuário alterasse o
+      // valor manualmente — o primeiro carregamento sempre usava 0%.
+      syncTaxParamFromInput();
       const totalFat = rawData.reduce((s,r)=>s+r.faturamento,0);
+      updateImportOverlay(`${rawData.length} registros carregados…`);
       setStatus(`✅ ${rawData.length} registros carregados | Faturamento total: R$ ${totalFat.toLocaleString('pt-BR',{minimumFractionDigits:2})}`, 90);
       buildFilterOptions();
       setTimeout(() => {
         setStatus('Pronto!', 100);
-        setTimeout(() => showDashboard(), 300);
+        setTimeout(() => { hideDashboardRecalc(); showDashboard(); }, 300);
       }, 100);
     } catch(err) {
       console.error(err);
       setStatus('❌ Erro: ' + err.message, 0);
+      hideDashboardRecalc();
     }
+  };
+  reader.onerror = () => {
+    console.error(reader.error);
+    setStatus('❌ Erro ao ler o arquivo.', 0);
+    hideDashboardRecalc();
   };
   reader.readAsArrayBuffer(file);
 }
@@ -1422,7 +1911,22 @@ function handleFile(file) {
 /* ══════════════════════════════════════════════════════
    DATA PROCESSING
 ══════════════════════════════════════════════════════ */
-function norm(s) { return String(s || '').trim().toUpperCase(); }
+/* norm(): normaliza nomes (cliente/empresa/categoria/descrição) para uso como
+   chave de agrupamento. Além de maiúsculas e trim, remove acentos e colapsa
+   espaços múltiplos, pois a planilha traz o MESMO cliente grafado de formas
+   diferentes entre abas (ex.: "ACTIVE LAB SAÚDE LTDA" em Receitas/Inadimplência/
+   Aluguéis vs. "ACTIVE LAB SAUDE LTDA" sem acento em Vendas). Sem essa
+   tolerância, o agrupamento por cliente cria DOIS registros para a mesma
+   empresa — um com Faturamento/Receitas (abas com acento) e outro só com
+   Insumos (aba sem acento) — fazendo o faturamento "sumir" para esse cliente
+   nas competências filtradas, mesmo havendo lançamentos nas abas de origem. */
+function norm(s) {
+  return String(s || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+}
 
 /* Converte qualquer representação de data do SheetJS em Date JS.
    Com cellDates:true o SheetJS já entrega Date objects, mas por
@@ -1467,30 +1971,41 @@ function readSheet(wb, name) {
   return XLSX.utils.sheet_to_json(ws, { defval: null, raw: true });
 }
 
-/* Busca chave num objeto ignorando acentuação e case —
-   necessário pois SheetJS pode variar encoding de EMISSÃO / EMISSAO */
+/* Busca chave num objeto ignorando acentuação, case e espaços extras —
+   necessário pois SheetJS pode variar encoding de EMISSÃO / EMISSAO, e
+   colunas com formato contábil/numérico aplicado ao cabeçalho (ex.: VALOR)
+   fazem o Excel preencher o texto do cabeçalho com espaços de alinhamento
+   (" VALOR "), o que quebraria a correspondência exata sem o trim(). */
 function fk(obj, ...keys) {
   for (const target of keys) {
     if (obj[target] !== undefined && obj[target] !== null) return obj[target];
-    const tNorm = target.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+    const tNorm = target.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
     for (const k of Object.keys(obj)) {
-      if (k.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase() === tNorm)
+      if (k.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim() === tNorm)
         return obj[k];
     }
   }
   return null;
 }
 
-function showDashboardRecalc(message = 'Recalculando despesas administrativas e demonstrativos…') {
+function showDashboardRecalc(message = 'Recalculando despesas administrativas e demonstrativos…', title = 'Atualizando dashboard') {
   const box = document.getElementById('dashboard-recalc');
-  const title = document.getElementById('dashboard-recalc-title');
+  const titleEl = document.getElementById('dashboard-recalc-title');
   const sub = document.getElementById('dashboard-recalc-sub');
   if (!box) return;
   dashboardRefreshState.shownAt = Date.now();
-  if (title) title.textContent = 'Atualizando dashboard';
+  if (titleEl) titleEl.textContent = title;
   if (sub) sub.textContent = message;
   box.classList.add('active');
   box.setAttribute('aria-hidden', 'false');
+}
+
+/* Atualiza apenas o texto do overlay de progresso já exibido, sem reiniciar
+   o cronômetro de tempo mínimo de exibição (usado durante a importação da
+   planilha, onde a mensagem muda várias vezes em sequência). */
+function updateImportOverlay(message) {
+  const sub = document.getElementById('dashboard-recalc-sub');
+  if (sub) sub.textContent = message;
 }
 
 function hideDashboardRecalc() {
@@ -1531,6 +2046,11 @@ function processWorkbook(wb) {
     empresa:  norm(fk(r,'EMPRESA')),
     valor:    toNum(fk(r,'VALOR')),
     data:     toDate(fk(r,'VENCIMENTO')),
+    descricao: norm(fk(r,'DESCRIÇÃO','DESCRICAO','Descrição','Descricao')),
+    // Data de quitação do título (coluna LIQUIDAÇÃO). Usada para identificar,
+    // entre os títulos idênticos existentes também na aba Inadimplência,
+    // quais já foram quitados (não são mais inadimplência real).
+    liquidacao: toDate(fk(r,'LIQUIDAÇÃO','LIQUIDACAO','Liquidação','Liquidacao')),
     display:  fk(r,'CLIENTE') ? String(fk(r,'CLIENTE')).trim() : '',
   })).filter(r => r.cliente && r.data);
 
@@ -1540,6 +2060,7 @@ function processWorkbook(wb) {
     empresa:  norm(fk(r,'EMPRESA')),
     valor:    toNum(fk(r,'VALOR')),
     data:     toDate(fk(r,'VENCIMENTO')),
+    descricao: norm(fk(r,'DESCRIÇÃO','DESCRICAO','Descrição','Descricao')),
     display:  fk(r,'CLIENTE') ? String(fk(r,'CLIENTE')).trim() : '',
   })).filter(r => r.cliente && r.data);
 
@@ -1559,14 +2080,19 @@ function processWorkbook(wb) {
     fornecedor: norm(fk(r,'FORNECEDOR')),
     valor:      toNum(fk(r,'VALOR')),
     data:       toDate(fk(r,'EMISSÃO','EMISSAO','Emissão','Emissao')),
+    // Nº da fatura — usado como "título" para comparação com a aba
+    // Inadimplência, a fim de eliminar duplicidade quando a mesma cobrança
+    // aparece nas duas abas (ex.: faturas recorrentes ainda não migradas
+    // para Receitas, mas já listadas como inadimplentes).
+    descricao:  norm(fk(r,'FATURA')),
     display:    fk(r,'CLIENTE') ? String(fk(r,'CLIENTE')).trim() : '',
   })).filter(r => r.cliente && r.data);
 
   // Debug no console
-  console.log(`[LabDash] Receitas: ${receitas.length} linhas | Soma: R$ ${receitas.reduce((s,r)=>s+r.valor,0).toFixed(2)}`);
-  console.log(`[LabDash] Inadimplência: ${inad.length} linhas | Soma: R$ ${inad.reduce((s,r)=>s+r.valor,0).toFixed(2)}`);
-  console.log(`[LabDash] Vendas: ${vendas.length} linhas | Soma líquida: R$ ${vendas.reduce((s,r)=>s+(r.valorTotal-r.valorDesconto),0).toFixed(2)}`);
-  console.log(`[LabDash] Aluguéis: ${alugueis.length} linhas | Soma: R$ ${alugueis.reduce((s,r)=>s+r.valor,0).toFixed(2)}`);
+  console.log(`[Grupo Labmedic] Receitas: ${receitas.length} linhas | Soma: R$ ${receitas.reduce((s,r)=>s+r.valor,0).toFixed(2)}`);
+  console.log(`[Grupo Labmedic] Inadimplência: ${inad.length} linhas | Soma: R$ ${inad.reduce((s,r)=>s+r.valor,0).toFixed(2)}`);
+  console.log(`[Grupo Labmedic] Vendas: ${vendas.length} linhas | Soma líquida: R$ ${vendas.reduce((s,r)=>s+(r.valorTotal-r.valorDesconto),0).toFixed(2)}`);
+  console.log(`[Grupo Labmedic] Aluguéis: ${alugueis.length} linhas | Soma: R$ ${alugueis.reduce((s,r)=>s+r.valor,0).toFixed(2)}`);
 
   // ── Display names (nome original, não normalizado)
   const displayNames = {};
@@ -1598,17 +2124,118 @@ function processWorkbook(wb) {
     if (!agg[k]) agg[k] = {
       cliente, empresa,
       year: date.getFullYear(), month: date.getMonth()+1,
-      receitas: 0, inadimplencia: 0, vendas: 0, alugueis: 0
+      receitas: 0, inadimplencia: 0, vendas: 0, alugueis: 0,
+      duplicados: 0,     // volume de títulos idênticos presentes em Receitas e Inadimplência da MESMA competência
+      duplicadosAlug: 0  // volume de títulos idênticos presentes em Aluguéis e Inadimplência (mesma cobrança, ex.: FATURA)
     };
     return agg[k];
   }
 
-  receitas.forEach(r => { ensure(r.cliente, r.empresa, r.data).receitas += r.valor; });
-  inad.forEach(r => { ensure(r.cliente, r.empresa, r.data).inadimplencia += r.valor; });
-  alugueis.forEach(r => {
-    ensure(r.cliente, r.fornecedor, r.data).alugueis += r.valor;
+  // ── Regra de faturamento:
+  //    Somam-se os registros de Receitas + Inadimplência da MESMA competência,
+  //    exceto quando o MESMO título (mesma descrição/NF, mesmo cliente/empresa,
+  //    mesma competência) aparece nas DUAS abas — nesse caso o volume já está
+  //    contabilizado em Receitas. Para eliminar a duplicidade de montantes,
+  //    comparam-se as abas Receitas e Inadimplência pelo título idêntico:
+  //      • Se em Receitas esse título NÃO tem data de quitação (LIQUIDAÇÃO em
+  //        branco), ele é, de fato, inadimplente — permanece contabilizado em
+  //        Inadimplência, mas seu valor (já somado em Receitas) é neutralizado
+  //        via "duplicados" para não ser contado duas vezes no faturamento.
+  //      • Se em Receitas esse título JÁ tem data de quitação (foi pago), ele
+  //        deixou de ser inadimplência — sua presença na aba Inadimplência é
+  //        desconsiderada por completo (o valor não entra em bucket.inadimplencia
+  //        nem precisa de neutralização, pois nunca é somado).
+  //    A mesma comparação é feita entre Inadimplência e Aluguéis: quando o
+  //    MESMO título (mesma FATURA/cliente) aparece em ambas — caso de
+  //    cobranças recorrentes ainda não migradas para Receitas, mas já
+  //    lançadas como inadimplentes — o valor já está contabilizado em
+  //    Aluguéis, então a sobreposição é neutralizada via "duplicadosAlug"
+  //    para não ser contado duas vezes no faturamento. A aba Aluguéis não
+  //    possui data de quitação, então não há exclusão total nesse caso —
+  //    apenas a neutralização da sobreposição, como no título sem quitação.
+  const receitasIndex = {}; // key → Map(descricao → { valor, quitado })
+  receitas.forEach(r => {
+    ensure(r.cliente, r.empresa, r.data).receitas += r.valor;
+    if (!r.descricao) return;
+    const k = key(r.cliente, r.empresa, r.data);
+    if (!receitasIndex[k]) receitasIndex[k] = new Map();
+    const prev = receitasIndex[k].get(r.descricao) || { valor: 0, quitado: false };
+    receitasIndex[k].set(r.descricao, {
+      valor: prev.valor + r.valor,
+      // Se qualquer lançamento desse título tiver data de quitação, o título
+      // é tratado como quitado (já recebido) para fins de comparação com a
+      // aba Inadimplência.
+      quitado: prev.quitado || !!r.liquidacao,
+    });
   });
 
+  // Extrai o número da fatura de um texto no padrão "FATURA 10631" (usado em
+  // Receitas/Inadimplência) ou de um valor puramente numérico (usado na
+  // coluna FATURA da aba Aluguéis), removendo zeros à esquerda para que
+  // "FATURA 0010631" e 10631 sejam reconhecidos como o mesmo título.
+  function faturaDigits(v) {
+    const s = String(v || '');
+    const m = s.match(/FATURA\s*0*([0-9]+)/i) || s.match(/^0*([0-9]+)$/);
+    return m ? m[1] : null;
+  }
+
+  // ── Aluguéis: soma ao bucket normalmente e, em paralelo, indexa por
+  //    título (cliente+fornecedor+nº da FATURA) para comparação com a aba
+  //    Inadimplência. Não se usa ano/mês nessa chave de título porque
+  //    Aluguéis registra a data de EMISSÃO e Inadimplência registra a data
+  //    de VENCIMENTO do mesmo título — datas que podem cair em meses
+  //    diferentes mesmo sendo a mesma cobrança.
+  const alugueisTituloIndex = {}; // `${cliente}||${fornecedor}||${nºFatura}` → { valor, key }
+  alugueis.forEach(r => {
+    ensure(r.cliente, r.fornecedor, r.data).alugueis += r.valor;
+    const fnum = faturaDigits(r.descricao);
+    if (!fnum) return;
+    const tk = `${r.cliente}||${r.fornecedor}||${fnum}`;
+    const bucketKey = key(r.cliente, r.fornecedor, r.data);
+    const prev = alugueisTituloIndex[tk] || { valor: 0, key: bucketKey };
+    alugueisTituloIndex[tk] = { valor: prev.valor + r.valor, key: bucketKey };
+  });
+
+  inad.forEach(r => {
+    const k = key(r.cliente, r.empresa, r.data);
+    const recMap = receitasIndex[k];
+    const recEntry = r.descricao && recMap ? recMap.get(r.descricao) : null;
+
+    if (recEntry && recEntry.quitado) {
+      // Título idêntico já quitado em Receitas: não é inadimplência real —
+      // desconsidera-se por completo (não soma a bucket.inadimplencia).
+      return;
+    }
+
+    const bucket = ensure(r.cliente, r.empresa, r.data);
+    bucket.inadimplencia += r.valor;
+
+    // Sobreposição a neutralizar no faturamento (limitada ao valor deste
+    // título, mesmo que ele coincida com Receitas E Aluguéis ao mesmo tempo).
+    let remaining = r.valor;
+
+    if (recEntry) {
+      // Título idêntico presente em Receitas e ainda sem quitação: é
+      // inadimplência real, mas seu valor já está somado em Receitas —
+      // neutraliza-se a sobreposição para não contar duas vezes no faturamento.
+      const overlap = Math.min(recEntry.valor, remaining);
+      bucket.duplicados += overlap;
+      remaining -= overlap;
+    }
+
+    const fnum = faturaDigits(r.descricao);
+    const tk = fnum ? `${r.cliente}||${r.empresa}||${fnum}` : null;
+    const alugEntry = tk ? alugueisTituloIndex[tk] : null;
+    if (alugEntry && remaining > 0) {
+      // Título idêntico presente em Aluguéis (mesma FATURA/cliente): o
+      // valor já está somado em Aluguéis — neutraliza-se a sobreposição no
+      // bucket de Aluguéis onde ele foi originalmente contabilizado.
+      const overlapAlug = Math.min(alugEntry.valor, remaining);
+      const alugBucket = agg[alugEntry.key];
+      if (alugBucket) alugBucket.duplicadosAlug += overlapAlug;
+      remaining -= overlapAlug;
+    }
+  });
   /* ── Vendas: resolução de empresa POR PERÍODO (cliente+ano+mês) ──
      A aba Vendas não traz a coluna EMPRESA. Antes da correção, todas as
      vendas de um cliente eram atribuídas a UMA única empresa via companyMap
@@ -1659,16 +2286,19 @@ function processWorkbook(wb) {
 
   return Object.values(agg).map(row => {
     // Faturamento mensal por competência:
-    //  • Se houve recebimento parcial no mês (receitas > inadimplência):
-    //      Faturamento = Receitas + Inadimplência
-    //  • Se nada foi recebido e todo o volume faturado virou inadimplência
-    //    no próprio mês (receitas == inadimplência, ou receitas == 0):
-    //      Faturamento = Inadimplência (evita dupla contagem do mesmo volume).
-    //  Aluguéis são somados em ambos os casos por serem receita independente.
-    const faturamentoServicos = (row.inadimplencia > 0 && row.receitas <= row.inadimplencia)
-      ? row.inadimplencia
-      : row.receitas + row.inadimplencia;
-    const faturamento = faturamentoServicos + row.alugueis;
+    //   Receitas + Inadimplência − Duplicados + Aluguéis − DuplicadosAlug
+    //   "Duplicados" = títulos idênticos (mesmo cliente/empresa, mesma
+    //   competência e mesma descrição/NF) presentes em Receitas e
+    //   Inadimplência. Nesse caso o valor já está em Receitas; a
+    //   Inadimplência apenas sinaliza que o título ainda não tem quitação.
+    //   "DuplicadosAlug" = títulos idênticos (mesma FATURA/cliente)
+    //   presentes em Aluguéis e Inadimplência — cobranças recorrentes ainda
+    //   não migradas para Receitas, mas já lançadas como inadimplentes; o
+    //   valor já está em Aluguéis, então é neutralizado aqui para não ser
+    //   somado duas vezes. Sem duplicidades, os volumes de Inadimplência e
+    //   Aluguéis somam normalmente ao faturamento.
+    const faturamentoServicos = row.receitas + row.inadimplencia - (row.duplicados || 0);
+    const faturamento = faturamentoServicos + row.alugueis - (row.duplicadosAlug || 0);
     return {
       ...row,
       displayName: displayNames[row.cliente] || row.cliente,
@@ -1699,7 +2329,7 @@ function processDespesas(wb) {
       month:       data ? data.getMonth() + 1 : null,
     };
   }).filter(r => r.natureza && r.data);
-  console.log(`[LabDash] Despesas: ${rows.length} linhas | Soma: R$ ${rows.reduce((s,r)=>s+r.valor,0).toFixed(2)}`);
+  console.log(`[Grupo Labmedic] Despesas: ${rows.length} linhas | Soma: R$ ${rows.reduce((s,r)=>s+r.valor,0).toFixed(2)}`);
   return rows;
 }
 
@@ -1718,7 +2348,10 @@ function buildFilterOptions() {
   filters.ano       = new Set(allValues.ano);
   filters.mes       = new Set(allValues.mes);
   filters.cliente   = new Set(allValues.cliente);
-  filters.categoria = new Set(allValues.categoria); // todas as categorias selecionadas por padrão
+  // Por padrão todas as categorias ficam marcadas, EXCETO as listadas em
+  // DEFAULT_UNCHECKED_CATEGORIES (REQ-002), que iniciam desmarcadas.
+  const defaultUncheckedNorm = new Set(DEFAULT_UNCHECKED_CATEGORIES.map(norm));
+  filters.categoria = new Set(allValues.categoria.filter(c => !defaultUncheckedNorm.has(norm(c))));
 
   buildOptions('empresa',   allValues.empresa,   v=>v);
   buildOptions('ano',       allValues.ano,       v=>String(v));
@@ -1987,6 +2620,36 @@ function updateFilterLabel(id) {
     badge.textContent = sel;
     badge.style.display = '';
   }
+  if (id === 'cliente') renderFilteredClientsCard();
+}
+
+/* Card ao lado de "Base do Rateio" com os clientes filtrados pelo usuário.
+   Só é exibido quando há um recorte (subconjunto) de clientes selecionado;
+   some quando o filtro está vazio ou com "todos" marcados, para não poluir
+   a barra sem necessidade. Os nomes ficam contidos dentro do próprio card
+   (chips com reticências + rolagem vertical), sem nunca extrapolar seus
+   limites. */
+function renderFilteredClientsCard() {
+  const card = document.getElementById('filtered-clients-card');
+  if (!card) return;
+  const total = allValues.cliente.length;
+  const selected = [...filters.cliente].sort((a,b)=>a.localeCompare(b));
+  const isPartialFilter = total > 0 && selected.length > 0 && selected.length < total;
+
+  if (!isPartialFilter) {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = '';
+
+  const countEl = document.getElementById('filtered-clients-count');
+  const chipsEl = document.getElementById('filtered-clients-chips');
+  if (countEl) countEl.textContent = `${selected.length} de ${total}`;
+  if (chipsEl) {
+    chipsEl.innerHTML = selected.map(name =>
+      `<span class="fcc-chip" title="${escapeHtml(name)}">${escapeHtml(name)}</span>`
+    ).join('');
+  }
 }
 
 function updateClearAllBtn() {
@@ -2078,7 +2741,7 @@ function resetDashboard() {
   document.getElementById('dashboard').style.display = 'none';
   rawData = []; despesasRaw = [];
   filters = { empresa:new Set(), ano:new Set(), mes:new Set(), cliente:new Set(), categoria:new Set() };
-  params.adminTotal = 0;
+  params.adminTotal = 0; params.adminTotalBase = 0; params.refFat = 0; params.desmarcadasTotal = 0;
   document.getElementById('file-input').value = '';
   document.getElementById('loading-progress').style.width = '0%';
   document.getElementById('loading-bar').style.display = 'none';
@@ -2092,6 +2755,7 @@ function resetDashboard() {
 ══════════════════════════════════════════════════════ */
 function renderDashboard() {
   recomputeAdminTotal(); // Despesas Adm. R$ = soma das categorias selecionadas x Empresa/Ano/Mês do cenário
+  recomputeDesmarcadasTotal(); // Despesas Desmarcadas R$ = soma das categorias NÃO selecionadas x Empresa/Ano/Mês do cenário
   const data = getFiltered();
   renderKPIs(data);
   renderStripes(data);
@@ -2557,20 +3221,55 @@ function renderHealthScores(data) {
 
 /* ── TABLE ── */
 function renderTable(data) {
-  // Aggregate by client + empresa + year + month (one row per registro mensal)
+  // ✅ Correção: "Ranking por Cliente" deve exibir CLIENTES ÚNICOS, com
+  // todos os montantes somados conforme o número de anos/meses/empresas
+  // presentes no cenário filtrado — e não uma linha por competência/empresa
+  // (o que fazia o mesmo cliente aparecer repetido várias vezes na lista).
+  // Guardamos também o conjunto de empresas e competências que compõem
+  // cada linha agregada, para exibir "N empresas"/"N meses" quando o
+  // cliente tiver dados em mais de uma, e para reabrir o modal de detalhe
+  // (que preserva a quebra mês a mês) com a empresa correta.
   const byClient = {};
   data.forEach(r => {
-    const k = r.cliente + '||' + r.empresa + '||' + r.year + '||' + r.month;
-    if (!byClient[k]) byClient[k] = { key:k, clientKey:r.cliente, name:r.displayName, emp:r.empresa, year:r.year, month:r.month, mesLabel:`${MESES[r.month]}/${String(r.year).slice(-2)}`, mesSort:r.year*100+r.month, fat:0, rec:0, inad:0, vend:0, alug:0, res:0 };
-    byClient[k].fat  += r.faturamento;
-    byClient[k].rec  += r.receitas;
-    byClient[k].inad += r.inadimplencia;
-    byClient[k].vend += r.vendas;
-    byClient[k].alug += r.alugueis;
-    byClient[k].res  += r.resultado;
+    const k = r.cliente;
+    if (!byClient[k]) byClient[k] = {
+      key:k, clientKey:r.cliente, name:r.displayName,
+      empresas: new Set(), periodos: new Set(),
+      fat:0, rec:0, inad:0, vend:0, alug:0, res:0
+    };
+    const b = byClient[k];
+    b.empresas.add(r.empresa);
+    b.periodos.add(r.year*100 + r.month);
+    b.fat  += r.faturamento;
+    b.rec  += r.receitas;
+    b.inad += r.inadimplencia;
+    b.vend += r.vendas;
+    b.alug += r.alugueis;
+    b.res  += r.resultado;
   });
 
-  let rows = Object.values(byClient).map((r,i)=>({...r,rank:i+1}));
+  let rows = Object.values(byClient).map((r,i) => {
+    const empresasArr = [...r.empresas].sort();
+    const periodosArr = [...r.periodos].sort((a,b)=>a-b);
+    const singleEmp    = empresasArr.length === 1 ? empresasArr[0] : null;
+    const singlePeriod = periodosArr.length === 1 ? periodosArr[0] : null;
+    return {
+      key: r.key, clientKey: r.clientKey, name: r.name,
+      // 'emp' é usado tanto para exibir a tag de empresa quanto para
+      // reabrir o modal de detalhe; 'ALL' sinaliza "todas as empresas do
+      // cliente no cenário filtrado" quando há mais de uma.
+      emp: singleEmp || 'ALL',
+      empList: empresasArr,
+      empLabel: singleEmp || `${empresasArr.length} empresas`,
+      mesLabel: singlePeriod
+        ? `${MESES[singlePeriod%100]}/${String(Math.floor(singlePeriod/100)).slice(-2)}`
+        : `${periodosArr.length} meses`,
+      mesTitle: periodosArr.map(p => `${MESES[p%100]}/${String(Math.floor(p/100)).slice(-2)}`).join(', '),
+      mesSort: periodosArr[periodosArr.length-1] || 0,
+      fat:r.fat, rec:r.rec, inad:r.inad, vend:r.vend, alug:r.alug, res:r.res,
+      rank:i+1
+    };
+  });
   // Aplicar ajustes (impostos + rateio de despesas administrativas)
   const { base: globalBase } = computeBases(data);
   const admEff = effectiveAdminTotal(data);
@@ -2617,9 +3316,16 @@ function tableSearch(q) {
   drawTable();
 }
 
+/* Um registro "casa" com a busca pelo nome do cliente ou por qualquer
+   empresa presente na linha agregada (empList cobre o caso 'ALL'). */
+function tableRowMatches(r, q) {
+  if (r.name.toLowerCase().includes(q)) return true;
+  return r.empList ? r.empList.some(e => e.toLowerCase().includes(q)) : r.emp.toLowerCase().includes(q);
+}
+
 function changePage(delta) {
   const filtered = tableState.search
-    ? tableState.data.filter(r=>r.name.toLowerCase().includes(tableState.search)||r.emp.toLowerCase().includes(tableState.search))
+    ? tableState.data.filter(r=>tableRowMatches(r, tableState.search))
     : tableState.data;
   const total = Math.ceil(filtered.length/tableState.pageSize);
   tableState.page = Math.max(1,Math.min(total, tableState.page+delta));
@@ -2628,7 +3334,7 @@ function changePage(delta) {
 
 function drawTable() {
   let rows = tableState.search
-    ? tableState.data.filter(r=>r.name.toLowerCase().includes(tableState.search)||r.emp.toLowerCase().includes(tableState.search))
+    ? tableState.data.filter(r=>tableRowMatches(r, tableState.search))
     : tableState.data;
 
   document.getElementById('table-count').textContent = `${rows.length} registros`;
@@ -2658,7 +3364,15 @@ function drawTable() {
     r.lucratividade = pct;
     const barW = r.res!==0 ? Math.abs(r.res)/maxRes*100 : 0;
     const barCol = r.res>=0?'var(--green)':'var(--red)';
-    const empClass = r.emp.includes('DIAG')?'DIAG':r.emp.includes('NOVA')?'NOVATEST':r.emp.includes('QST')?'QST':r.emp;
+    // Cliente com dados em mais de uma empresa no cenário filtrado: exibe
+    // "N empresas" (com todas listadas no title) em vez de forçar uma tag
+    // única incorreta.
+    const empLabel = r.empList.length === 1 ? r.emp : r.empLabel;
+    const empClass = r.empList.length === 1
+      ? (r.emp.includes('DIAG')?'DIAG':r.emp.includes('NOVA')?'NOVATEST':r.emp.includes('QST')?'QST':r.emp)
+      : 'MULTI';
+    const empTitle = r.empList.join(', ');
+    const mesTitle = r.mesTitle || r.mesLabel || '';
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -2669,8 +3383,8 @@ function drawTable() {
         </button>
       </td>
       <td><span class="rank-badge ${rankClass}">${globalRank}</span></td>
-      <td><span class="tag-empresa tag-${empClass}">${r.emp}</span></td>
-      <td style="white-space:nowrap">${r.mesLabel || '—'}</td>
+      <td><span class="tag-empresa tag-${empClass}" title="${escapeHtml(empTitle)}">${escapeHtml(empLabel)}</span></td>
+      <td style="white-space:nowrap" title="${escapeHtml(mesTitle)}">${r.mesLabel || '—'}</td>
       <td class="client-cell" title="${r.name}">${r.name}</td>
       <td class="num">${fmtR(r.fat)}</td>
       <td class="num">${fmtR(r.rec)}</td>
@@ -2763,13 +3477,22 @@ function getScenarioSummary() {
   };
 }
 function buildClientDetail(clientKey, emp) {
+  // ✅ 'ALL' é o sentinel usado pelo Ranking por Cliente (agora agregado por
+  // cliente único) quando o cliente tem lançamentos em mais de uma empresa
+  // no cenário filtrado — nesse caso o modal reúne TODAS as empresas do
+  // cliente, mas continua detalhando mês a mês (rows/monthly abaixo).
+  const isAllEmpresas = emp === 'ALL';
   const scenario = getFiltered();
   const rows = scenario
-    .filter(r => r.cliente === clientKey && r.empresa === emp)
+    .filter(r => r.cliente === clientKey && (isAllEmpresas || r.empresa === emp))
     .sort((a,b) => a.year === b.year ? a.month - b.month : a.year - b.year);
   if (!rows.length) return null;
 
-  const totals = { clientKey, emp, name: rows[0].displayName || clientKey, fat:0, rec:0, inad:0, vend:0, alug:0, res:0 };
+  const empDisplay = isAllEmpresas
+    ? [...new Set(rows.map(r=>r.empresa))].sort().join(' + ')
+    : emp;
+
+  const totals = { clientKey, emp: empDisplay, name: rows[0].displayName || clientKey, fat:0, rec:0, inad:0, vend:0, alug:0, res:0 };
   rows.forEach(r => {
     totals.fat  += r.faturamento;
     totals.rec  += r.receitas;
@@ -2788,10 +3511,17 @@ function buildClientDetail(clientKey, emp) {
 
   const monthly = rows.map(r => {
     const adj = adjRow({ fat: r.faturamento, vend: r.vendas, alug: r.alugueis, res: r.resultado }, scenarioBases.base, scenarioAdmEff);
+    // Quando o cliente tem mais de uma empresa (isAllEmpresas), um mesmo
+    // mês pode aparecer mais de uma vez (uma linha por empresa) — o nome
+    // da empresa é anexado ao rótulo para não parecer um mês duplicado.
+    const label = isAllEmpresas
+      ? `${MESES[r.month]}/${String(r.year).slice(-2)} · ${r.empresa}`
+      : `${MESES[r.month]}/${String(r.year).slice(-2)}`;
     return {
       year: r.year,
       month: r.month,
-      label: `${MESES[r.month]}/${String(r.year).slice(-2)}`,
+      empresa: r.empresa,
+      label,
       fat: r.faturamento,
       rec: r.receitas,
       inad: r.inadimplencia,
@@ -2803,6 +3533,47 @@ function buildClientDetail(clientKey, emp) {
       resAj: adj.resAjustado
     };
   });
+
+  // ── Contagem real de competências (períodos) ──
+  // Quando o cliente tem lançamentos em mais de uma empresa (isAllEmpresas),
+  // um mesmo mês/ano gera um registro POR EMPRESA em "monthly" — contar
+  // monthly.length nesse caso duplica (ou multiplica) o número real de
+  // meses. periodCount usa um Set de ano/mês para refletir a quantidade
+  // verdadeira de competências distintas no cenário, independente de
+  // quantas empresas emitiram títulos em cada uma delas.
+  const periodCount = new Set(monthly.map(m => m.year * 100 + m.month)).size;
+
+  // ── Registros ordenados por empresa emissora ──
+  // A listagem (tabela do modal e do PDF) deve exibir os registros
+  // agrupados por empresa emissora dos títulos e, dentro de cada empresa,
+  // em ordem cronológica. "monthly" (acima) permanece em ordem
+  // cronológica pura — é usado no gráfico de evolução e nos cálculos de
+  // tendência/melhor-pior mês, que dependem da sequência real no tempo.
+  const monthlyDisplay = [...monthly].sort((a, b) => {
+    const empA = a.empresa || '';
+    const empB = b.empresa || '';
+    if (empA !== empB) return empA.localeCompare(empB);
+    return a.year === b.year ? a.month - b.month : a.year - b.year;
+  });
+
+  // ── Resumo por empresa emissora ──
+  // Totaliza cada coluna agrupando os registros por empresa — usado no
+  // PDF do cliente para dar uma leitura consolidada de quanto cada
+  // empresa emissora representa no faturamento/resultado do cliente.
+  const empresaSummaryMap = {};
+  monthly.forEach(m => {
+    const e = m.empresa || '—';
+    if (!empresaSummaryMap[e]) empresaSummaryMap[e] = {
+      empresa: e, periodos: new Set(), fat:0, rec:0, inad:0, vend:0, alug:0, res:0, impostos:0, adm:0, resAj:0
+    };
+    const s = empresaSummaryMap[e];
+    s.periodos.add(m.year * 100 + m.month);
+    s.fat += m.fat; s.rec += m.rec; s.inad += m.inad; s.vend += m.vend; s.alug += m.alug;
+    s.res += m.res; s.impostos += m.impostos; s.adm += m.adm; s.resAj += m.resAj;
+  });
+  const empresaSummary = Object.values(empresaSummaryMap)
+    .map(s => ({ ...s, periodos: s.periodos.size }))
+    .sort((a,b) => a.empresa.localeCompare(b.empresa));
 
   const participation = scenarioBases.fat > 0 ? totals.fat / scenarioBases.fat : 0;
   const margin    = totals.fat > 0 ? totals.res / totals.fat : 0;
@@ -2850,10 +3621,13 @@ function buildClientDetail(clientKey, emp) {
 
   return {
     clientKey,
-    emp,
+    emp: empDisplay,
     name: totals.name,
     rows,
     monthly,
+    monthlyDisplay,
+    periodCount,
+    empresaSummary,
     totals,
     participation,
     margin,
@@ -2873,7 +3647,7 @@ function buildClientDetail(clientKey, emp) {
 }
 function buildClientOverviewHTML(detail) {
   const summaryClass = v => v >= 0 ? 'good' : 'danger';
-  const monthlyRows = detail.monthly.map(m => {
+  const monthlyRows = detail.monthlyDisplay.map(m => {
     const luc = m.fat > 0 ? m.resAj / m.fat : 0;
     return `
     <tr>
@@ -2994,7 +3768,7 @@ function buildClientOverviewHTML(detail) {
       <div class="client-card">
         <div class="client-card-title">
           <h4>Composição mensal do cliente</h4>
-          <span>${detail.monthly.length} período(s) no cenário</span>
+          <span>${detail.periodCount} período(s) no cenário${detail.monthlyDisplay.length !== detail.periodCount ? ` · ${detail.monthlyDisplay.length} registro(s)` : ''}</span>
         </div>
         <div class="table-wrap">
           <table class="client-detail-table">
@@ -3014,15 +3788,58 @@ function buildClientOverviewHTML(detail) {
               </tr>
             </thead>
             <tbody>${monthlyRows}</tbody>
+            ${buildClientDetailTotalsFoot(detail)}
           </table>
         </div>
       </div>
     </div>`;
 }
+
+/* ── Barra totalizadora do modal de detalhes do cliente ──
+   Soma os montantes de TODOS os registros listados na tabela "Composição
+   mensal do cliente", nos mesmos moldes do totalizador já existente na
+   tabela principal do dashboard (ver renderTableTotals).
+   Reaproveita detail.totals, que já é a soma de cada coluna sobre as
+   mesmas linhas exibidas em detail.monthlyDisplay — garantindo que o
+   total exibido bata exatamente com a soma dos registros listados no
+   modal. O rótulo distingue nº de REGISTROS (uma linha por empresa+mês)
+   de nº de PERÍODOS reais (competências distintas, via periodCount) —
+   quando o cliente tem mais de uma empresa emissora, um mesmo mês gera
+   mais de um registro, e usar o total de linhas como se fosse "períodos"
+   duplicava a contagem real de meses. */
+function buildClientDetailTotalsFoot(detail) {
+  const t = detail.totals;
+  const n = detail.monthlyDisplay.length;
+  if (!n) return '';
+  const tLuc = t.fat > 0 ? t.resAj / t.fat : 0;
+  const label = n === detail.periodCount
+    ? `Total · ${n} período${n===1?'':'s'}`
+    : `Total · ${n} registro${n===1?'':'s'} (${detail.periodCount} período${detail.periodCount===1?'':'s'})`;
+  return `
+    <tfoot>
+      <tr class="totals-row">
+        <td class="totals-label">${label}</td>
+        <td class="num">${fmtR(t.fat)}</td>
+        <td class="num">${fmtR(t.rec)}</td>
+        <td class="num" style="color:var(--red)">${fmtR(t.inad)}</td>
+        <td class="num">${fmtR(t.vend)}</td>
+        <td class="num" style="color:var(--purple)">${fmtR(t.alug)}</td>
+        <td class="num"><span class="${t.res>=0?'result-pos':'result-neg'}">${fmtR(t.res)}</span></td>
+        <td class="num" style="color:var(--red)">${fmtR(t.impostos)}</td>
+        <td class="num" style="color:var(--amber)">${fmtR(t.adm)}</td>
+        <td class="num"><span class="${t.resAj>=0?'result-pos':'result-neg'}">${fmtR(t.resAj)}</span></td>
+        <td class="num">${fmtPct(tLuc)}</td>
+      </tr>
+    </tfoot>`;
+}
 function buildClientReportHTML(detail) {
   const fileName = document.getElementById('file-name-display')?.textContent || 'Planilha importada';
   const now = new Date().toLocaleString('pt-BR');
-  const monthlyRows = detail.monthly.map((m,i) => {
+  // Registros ordenados por empresa emissora (ver monthlyDisplay em
+  // buildClientDetail), e não em ordem cronológica pura — para agrupar
+  // visualmente todos os títulos de uma mesma empresa antes de passar
+  // para a próxima.
+  const monthlyRows = detail.monthlyDisplay.map((m,i) => {
     const luc = m.fat > 0 ? m.resAj / m.fat : 0;
     return `
     <tr class="${i % 2 === 0 ? 'even' : ''}">
@@ -3037,6 +3854,49 @@ function buildClientReportHTML(detail) {
       <td class="r amber">${fmtR(m.adm)}</td>
       <td class="r ${m.resAj >= 0 ? 'green' : 'red'}"><strong>${fmtR(m.resAj)}</strong></td>
       <td class="r ${luc >= 0 ? 'green' : 'red'}" style="font-weight:800;background:#EFF6FF"><strong>${fmtPct(luc)}</strong></td>
+    </tr>`;
+  }).join('');
+
+  // Linha totalizadora da listagem de registros (reaproveita detail.totals,
+  // que soma exatamente as mesmas linhas exibidas acima).
+  const t = detail.totals;
+  const tLucTotal = t.fat > 0 ? t.resAj / t.fat : 0;
+  const nRegistros = detail.monthlyDisplay.length;
+  const totalsLabel = nRegistros === detail.periodCount
+    ? `Total · ${nRegistros} período${nRegistros===1?'':'s'}`
+    : `Total · ${nRegistros} registro${nRegistros===1?'':'s'} (${detail.periodCount} período${detail.periodCount===1?'':'s'})`;
+  const monthlyTotalsRow = `
+    <tr class="totals-row">
+      <td><strong>${totalsLabel}</strong></td>
+      <td class="r"><strong>${fmtR(t.fat)}</strong></td>
+      <td class="r"><strong>${fmtR(t.rec)}</strong></td>
+      <td class="r red"><strong>${fmtR(t.inad)}</strong></td>
+      <td class="r"><strong>${fmtR(t.vend)}</strong></td>
+      <td class="r purple"><strong>${fmtR(t.alug)}</strong></td>
+      <td class="r ${t.res >= 0 ? 'green' : 'red'}"><strong>${fmtR(t.res)}</strong></td>
+      <td class="r red"><strong>${fmtR(t.impostos)}</strong></td>
+      <td class="r amber"><strong>${fmtR(t.adm)}</strong></td>
+      <td class="r ${t.resAj >= 0 ? 'green' : 'red'}"><strong>${fmtR(t.resAj)}</strong></td>
+      <td class="r ${tLucTotal >= 0 ? 'green' : 'red'}" style="font-weight:800;background:#DBEAFE"><strong>${fmtPct(tLucTotal)}</strong></td>
+    </tr>`;
+
+  // Resumo por empresa emissora dos títulos.
+  const empresaSummaryRows = detail.empresaSummary.map((e,i) => {
+    const lucE = e.fat > 0 ? e.resAj / e.fat : 0;
+    return `
+    <tr class="${i % 2 === 0 ? 'even' : ''}">
+      <td>${escapeHtml(e.empresa)}</td>
+      <td class="r">${e.periodos}</td>
+      <td class="r">${fmtR(e.fat)}</td>
+      <td class="r">${fmtR(e.rec)}</td>
+      <td class="r red">${fmtR(e.inad)}</td>
+      <td class="r">${fmtR(e.vend)}</td>
+      <td class="r purple">${fmtR(e.alug)}</td>
+      <td class="r ${e.res >= 0 ? 'green' : 'red'}"><strong>${fmtR(e.res)}</strong></td>
+      <td class="r red">${fmtR(e.impostos)}</td>
+      <td class="r amber">${fmtR(e.adm)}</td>
+      <td class="r ${e.resAj >= 0 ? 'green' : 'red'}"><strong>${fmtR(e.resAj)}</strong></td>
+      <td class="r ${lucE >= 0 ? 'green' : 'red'}" style="font-weight:800;background:#EFF6FF"><strong>${fmtPct(lucE)}</strong></td>
     </tr>`;
   }).join('');
 
@@ -3075,6 +3935,7 @@ function buildClientReportHTML(detail) {
     tbody td { padding:5px 5px; border-bottom:1px solid #E2E8F0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     tbody tr.even td { background:#F8FAFC; }
     td.r, th.r { text-align:right; font-variant-numeric: tabular-nums; }
+    tr.totals-row td { background:#EFF6FF; border-top:2px solid #93C5FD; font-weight:800; }
     .footer { display:flex; justify-content:space-between; gap:12px; margin-top:16px; padding-top:10px; border-top:1px solid #E2E8F0; font-size:10px; color:#64748B; }
   </style></head><body>
     <div class="page">
@@ -3122,7 +3983,32 @@ function buildClientReportHTML(detail) {
         </div>
 
         <div class="section">
-          <h2>Evolução mensal do cliente</h2>
+          <h2>Resumo por empresa emissora</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Empresa</th>
+                  <th class="r">Períodos</th>
+                  <th class="r">Faturamento</th>
+                  <th class="r">Receitas</th>
+                  <th class="r">Inadimpl.</th>
+                  <th class="r">Insumos</th>
+                  <th class="r">Aluguéis</th>
+                  <th class="r">Resultado</th>
+                  <th class="r">Impostos</th>
+                  <th class="r">Adm</th>
+                  <th class="r">Res. Ajust.</th>
+                  <th class="r" style="background:#1D4ED8">Lucratividade %</th>
+                </tr>
+              </thead>
+              <tbody>${empresaSummaryRows}</tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Evolução mensal do cliente (por empresa emissora)</h2>
           <div class="table-wrap">
             <table>
               <thead>
@@ -3141,12 +4027,13 @@ function buildClientReportHTML(detail) {
                 </tr>
               </thead>
               <tbody>${monthlyRows}</tbody>
+              <tfoot>${monthlyTotalsRow}</tfoot>
             </table>
           </div>
         </div>
 
         <div class="footer">
-          <span>LabDash • Relatório individual do cliente</span>
+          <span>Grupo Labmedic • Relatório individual do cliente</span>
           <span>Documento preparado para exportação em PDF</span>
         </div>
       </div>
@@ -3214,7 +4101,7 @@ function applyClientModalState(detail) {
   clientModalState = detail;
   document.getElementById('client-modal-name').textContent = detail.name;
   document.getElementById('client-modal-company').textContent = detail.emp;
-  document.getElementById('client-modal-meta').textContent = `Ranking #${detail.rank} • ${detail.monthly.length} período(s) • ${fmtPct(detail.participation)} do faturamento`;
+  document.getElementById('client-modal-meta').textContent = `Ranking #${detail.rank} • ${detail.periodCount} período(s) • ${fmtPct(detail.participation)} do faturamento`;
   const health = document.getElementById('client-modal-health');
   health.className = `client-status-pill ${detail.healthTone}`;
   health.textContent = `Health score ${detail.healthScore}/100 • ${detail.healthLabel}`;
@@ -3260,7 +4147,7 @@ async function downloadClientPDF() {
   refreshClientPDFPreview();
 
   const frame = document.getElementById('client-pdf-frame');
-  const fileName = `LabDash_${slugify(clientModalState.name)}_${slugify(clientModalState.emp)}.pdf`;
+  const fileName = `Grupo Labmedic_${slugify(clientModalState.name)}_${slugify(clientModalState.emp)}.pdf`;
 
   const run = async () => {
     const doc = frame.contentDocument || frame.contentWindow?.document;
@@ -3412,7 +4299,7 @@ function exportXLSX() {
   const wsParam = XLSX.utils.aoa_to_sheet(paramRows);
   XLSX.utils.book_append_sheet(wb, wsParam, 'Parâmetros');
 
-  const fname = `LabDash_${new Date().toISOString().slice(0,10)}.xlsx`;
+  const fname = `Grupo Labmedic_${new Date().toISOString().slice(0,10)}.xlsx`;
   XLSX.writeFile(wb, fname);
 }
 
@@ -3503,7 +4390,7 @@ function exportPDF() {
 
   const html = `<!DOCTYPE html><html lang="pt-BR"><head>
   <meta charset="UTF-8">
-  <title>LabDash — Relatório de Resultado por Cliente</title>
+  <title>Grupo Labmedic — Relatório de Lucratividade por Cliente</title>
   <style>
     @page { size: A4 landscape; margin: 12mm 14mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -3558,7 +4445,7 @@ function exportPDF() {
 <!-- ── HEADER -->
 <div class="header">
   <div class="header-left">
-    <h1>LabDash — Análise de Resultado por Cliente</h1>
+    <h1>Grupo Labmedic — Análise de Lucrdatividade</h1>
     <p>Fonte: ${fileName} &nbsp;|&nbsp; Gerado em: ${now}</p>
   </div>
   <div class="header-right">
@@ -3651,7 +4538,7 @@ function exportPDF() {
 </div>
 
 <div class="footer">
-  <span>LabDash Analytics — Confidencial</span>
+  <span>Grupo Labmedic - Ambiente Confidencial</span>
   <span>${now}</span>
 </div>
 
@@ -3721,6 +4608,8 @@ document.addEventListener('keydown', e => {
 </script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
