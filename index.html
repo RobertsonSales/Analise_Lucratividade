@@ -1328,6 +1328,17 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
       <span class="param-caption">Filtra o Ranking por Cliente, a planilha e os PDFs pelo sinal do <strong>Resultado Ajustado</strong>.</span>
     </div>
 
+    <div class="param-group" id="inadimplencia-mode-group">
+      <div class="param-field" style="min-width:220px">
+        <label for="select-inadimplencia-mode">Cálculo do Resultado</label>
+        <select id="select-inadimplencia-mode" onchange="setInadimplenciaMode(this.value)" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.55);color:inherit;font-weight:600;cursor:pointer">
+          <option value="com">Ignorar inadimplência</option>
+          <option value="sem">Considerar inadimplência</option>
+        </select>
+      </div>
+      <span class="param-caption">Define se a <strong>inadimplência</strong> do cliente no período é descontada do <strong>Resultado</strong> (padrão) ou desconsiderada do cálculo. O Faturamento e a Inadimplência exibidos não se alteram.</span>
+    </div>
+
 
 
     <!-- Card: clientes filtrados pelo usuário (exibido somente quando há um
@@ -1547,6 +1558,27 @@ let charts   = {};   // Chart.js instances
 let filters  = { empresa: new Set(), ano: new Set(), mes: new Set(), cliente: new Set(), categoria: new Set() };
 let allValues = { empresa: [], ano: [], mes: [], cliente: [], categoria: [] };
 let resultFilter = 'all'; // 'all' | 'pos' | 'neg' — filtra pelo sinal do Resultado Ajustado
+let inadimplenciaMode = 'com'; // 'com' = Resultado desconta a inadimplência da competência (padrão) | 'sem' = Resultado ignora a inadimplência (títulos tratados como liquidados)
+/* Recalcula o campo "resultado" de cada linha do dataset mestre conforme o
+   modo de cálculo selecionado, sem tocar nos demais campos (faturamento,
+   receitas, inadimplência, vendas, aluguéis permanecem sempre os valores
+   reais da planilha). Como toda a cadeia (KPIs, gráficos, ranking, tabela
+   e exportações) lê sempre "resultado" a partir de rawData/getFiltered(),
+   um único recálculo aqui já propaga para o dashboard inteiro. */
+function recalcResultados(data) {
+  data.forEach(r => {
+    r.resultado = r.faturamento - r.vendas - (inadimplenciaMode === 'com' ? r.inadimplencia : 0);
+  });
+}
+function setInadimplenciaMode(v) {
+  inadimplenciaMode = (v === 'sem') ? 'sem' : 'com';
+  if (!rawData.length) return;
+  recalcResultados(rawData);
+  requestDashboardRefresh({
+    showLoader: true,
+    message: 'Recalculando resultado conforme inadimplência…'
+  });
+}
 function setResultFilter(v) {
   resultFilter = v || 'all';
   if (typeof drawTable === 'function') drawTable();
@@ -1907,6 +1939,9 @@ function handleFile(file) {
       setStatus('Calculando resultados…', 75);
       rawData = data;
       if (!rawData.length) throw new Error('Nenhum dado encontrado. Verifique se as abas Receitas, Inadimplência, Vendas e Aluguéis existem e têm dados.');
+      // Aplica o modo de cálculo de inadimplência atualmente selecionado
+      // (mantém o comportamento pré-existente quando o modo é 'com').
+      recalcResultados(rawData);
       // ✅ Correção: sem isto, o percentual inicial do campo (%) Impostos
       // (ex.: 18%) só entrava no cálculo depois que o usuário alterasse o
       // valor manualmente — o primeiro carregamento sempre usava 0%.
@@ -1946,11 +1981,29 @@ function handleFile(file) {
    Insumos (aba sem acento) — fazendo o faturamento "sumir" para esse cliente
    nas competências filtradas, mesmo havendo lançamentos nas abas de origem. */
 function norm(s) {
-  return String(s || '')
+  let out = String(s || '')
     .trim()
     .replace(/\s+/g, ' ')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toUpperCase();
+  // Colapsa hífens com espaços variáveis ("LTDA-ME" vs "LTDA - ME") e
+  // remove pontuações finais ("LTDA." vs "LTDA") antes de retirar os
+  // sufixos societários — a mesma razão social pode vir grafada de
+  // formas ligeiramente diferentes entre abas.
+  out = out.replace(/[\.,;]+$/g, '').replace(/\s*-\s*/g, ' - ').trim();
+  // ✅ Correção do Faturamento zerado para clientes com registros em
+  // Receitas: sufixos societários (ME, EPP, EIRELI, MEI) apareciam de
+  // forma inconsistente entre abas — ex.: "CENTRO DE DIAGNOSTICO
+  // CITOLOGICO LTDA" em Receitas vs. "CENTRO DE DIAGNOSTICO CITOLOGICO
+  // LTDA - ME" em Vendas. Sem retirá-los, o mesmo cliente virava dois
+  // buckets distintos (agg key inclui cliente normalizado); a linha só
+  // com Vendas ficava com Faturamento R$ 0,00 e Resultado fortemente
+  // negativo, e o total do cliente em todas as métricas ficava dividido.
+  // Retira o sufixo repetidamente para cobrir combinações como
+  // "LTDA - ME" quando aparecerem encadeadas.
+  const suffix = /(?:\s*-\s*)?\s*\b(ME|EPP|EIRELI|MEI)\s*$/;
+  while (suffix.test(out)) out = out.replace(suffix, '').trim();
+  return out.replace(/[\.,;]+$/g, '').trim();
 }
 
 /* Converte qualquer representação de data do SheetJS em Date JS.
