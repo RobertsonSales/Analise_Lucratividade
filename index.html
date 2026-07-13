@@ -1316,6 +1316,20 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
       <span class="param-caption">Selecione, na aba <strong>Despesas</strong>, as categorias que compõem <strong>Despesas Adm.</strong> Recalcula ao marcar/desmarcar, respeitando Ano/Mês.</span>
     </div>
 
+    <div class="param-group" id="result-filter-group">
+      <div class="param-field" style="min-width:220px">
+        <label for="select-result-filter">Exibir Clientes</label>
+        <select id="select-result-filter" onchange="setResultFilter(this.value)" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.55);color:inherit;font-weight:600;cursor:pointer">
+          <option value="all">Todos (positivos e negativos)</option>
+          <option value="pos">Apenas resultados positivos</option>
+          <option value="neg">Apenas resultados negativos</option>
+        </select>
+      </div>
+      <span class="param-caption">Filtra o Ranking por Cliente, a planilha e os PDFs pelo sinal do <strong>Resultado Ajustado</strong>.</span>
+    </div>
+
+
+
     <!-- Card: clientes filtrados pelo usuário (exibido somente quando há um
          subconjunto de clientes selecionado no filtro "Cliente"). -->
     <div class="filtered-clients-card" id="filtered-clients-card" style="display:none">
@@ -1532,7 +1546,18 @@ let despesasRaw = []; // linhas da aba "Despesas" (rateio das Despesas Administr
 let charts   = {};   // Chart.js instances
 let filters  = { empresa: new Set(), ano: new Set(), mes: new Set(), cliente: new Set(), categoria: new Set() };
 let allValues = { empresa: [], ano: [], mes: [], cliente: [], categoria: [] };
-let tableState = { data: [], search: '', sort: 'mes', dir: 'desc', page: 1, pageSize: Number.MAX_SAFE_INTEGER };
+let resultFilter = 'all'; // 'all' | 'pos' | 'neg' — filtra pelo sinal do Resultado Ajustado
+function setResultFilter(v) {
+  resultFilter = v || 'all';
+  if (typeof drawTable === 'function') drawTable();
+}
+function applyResultFilter(rows) {
+  if (resultFilter === 'pos') return rows.filter(r => (r.resAj || 0) >= 0);
+  if (resultFilter === 'neg') return rows.filter(r => (r.resAj || 0) <  0);
+  return rows;
+}
+
+let tableState = { data: [], search: '', sort: 'lucratividade', dir: 'desc', page: 1, pageSize: Number.MAX_SAFE_INTEGER };
 let params = { taxPct: 0, adminTotal: 0, adminTotalBase: 0, desmarcadasTotal: 0, refFat: 0 };  // impostos, despesas administrativas, despesas desmarcadas e faturamento de referência (universo Empresa/Ano/Mês, ignora cliente)
 let clienteSearchQuery = '';   // busca imediata no filtro de clientes
 let clientModalState = null;
@@ -2041,18 +2066,28 @@ function requestDashboardRefresh({ showLoader = false, message = 'Recalculando d
 function processWorkbook(wb) {
 
   // ── Receitas
-  const receitas = readSheet(wb, 'Receitas').map(r => ({
-    cliente:  norm(fk(r,'CLIENTE')),
-    empresa:  norm(fk(r,'EMPRESA')),
-    valor:    toNum(fk(r,'VALOR')),
-    data:     toDate(fk(r,'VENCIMENTO')),
-    descricao: norm(fk(r,'DESCRIÇÃO','DESCRICAO','Descrição','Descricao')),
-    // Data de quitação do título (coluna LIQUIDAÇÃO). Usada para identificar,
-    // entre os títulos idênticos existentes também na aba Inadimplência,
-    // quais já foram quitados (não são mais inadimplência real).
-    liquidacao: toDate(fk(r,'LIQUIDAÇÃO','LIQUIDACAO','Liquidação','Liquidacao')),
-    display:  fk(r,'CLIENTE') ? String(fk(r,'CLIENTE')).trim() : '',
-  })).filter(r => r.cliente && r.data);
+  // Regra de negócio: registros que possuírem QUALQUER valor na coluna H
+  // ("NÃO CLIENTE") da aba Receitas devem ser EXCLUÍDOS do cômputo do
+  // faturamento (não representam receita de cliente da operação).
+  const isNaoCliente = (v) => {
+    if (v === null || v === undefined) return false;
+    if (typeof v === 'string') return v.trim() !== '';
+    return true;
+  };
+  const receitas = readSheet(wb, 'Receitas')
+    .filter(r => !isNaoCliente(fk(r,'NÃO CLIENTE','NAO CLIENTE','Não Cliente','Nao Cliente')))
+    .map(r => ({
+      cliente:  norm(fk(r,'CLIENTE')),
+      empresa:  norm(fk(r,'EMPRESA')),
+      valor:    toNum(fk(r,'VALOR')),
+      data:     toDate(fk(r,'VENCIMENTO')),
+      descricao: norm(fk(r,'DESCRIÇÃO','DESCRICAO','Descrição','Descricao')),
+      // Data de quitação do título (coluna LIQUIDAÇÃO). Usada para identificar,
+      // entre os títulos idênticos existentes também na aba Inadimplência,
+      // quais já foram quitados (não são mais inadimplência real).
+      liquidacao: toDate(fk(r,'LIQUIDAÇÃO','LIQUIDACAO','Liquidação','Liquidacao')),
+      display:  fk(r,'CLIENTE') ? String(fk(r,'CLIENTE')).trim() : '',
+    })).filter(r => r.cliente && r.data);
 
   // ── Inadimplência
   const inad = readSheet(wb, 'Inadimplência').map(r => ({
@@ -2303,7 +2338,12 @@ function processWorkbook(wb) {
       ...row,
       displayName: displayNames[row.cliente] || row.cliente,
       faturamento,
-      resultado: faturamento - row.vendas,
+      // O Resultado desconta a inadimplência da competência: títulos
+      // não liquidados não geram caixa e, portanto, não podem inflar a
+      // margem do cliente. Faturamento continua representando o volume
+      // faturado; o Resultado passa a refletir o efeito real de caixa
+      // (faturamento − insumos − inadimplência da competência).
+      resultado: faturamento - row.vendas - row.inadimplencia,
     };
   });
 }
@@ -3280,7 +3320,7 @@ function renderTable(data) {
     r.resAj    = a.resAjustado;
     r.lucratividade = r.fat > 0 ? r.resAj / r.fat : 0;
   });
-  rows.sort((a,b)=>b.res-a.res);
+  rows.sort((a,b)=>b.resAj-a.resAj);
   rows.forEach((r,i)=>r.rank=i+1);
 
   tableState.data = rows;
@@ -3298,16 +3338,28 @@ function applyTableSort() {
     const bv = typeof b[field]==='string'?b[field].toLowerCase():b[field];
     return dir==='asc' ? (av>bv?1:-1) : (av<bv?1:-1);
   });
+  updateSortHeader();
+}
+
+function updateSortHeader() {
+  document.querySelectorAll('thead th').forEach(th => {
+    th.classList.remove('sorted');
+    const icon = th.querySelector('.sort-icon');
+    if (icon) icon.textContent = '↕';
+  });
+  const th = document.querySelector(`th[onclick="sortTable('${tableState.sort}')"]`);
+  if (th) {
+    th.classList.add('sorted');
+    const icon = th.querySelector('.sort-icon');
+    if (icon) icon.textContent = tableState.dir === 'asc' ? '↑' : '↓';
+  }
 }
 
 function sortTable(col) {
-  document.querySelectorAll('thead th').forEach(th=>th.classList.remove('sorted'));
   if (tableState.sort===col) tableState.dir = tableState.dir==='asc'?'desc':'asc';
   else { tableState.sort=col; tableState.dir='desc'; }
   applyTableSort();
   drawTable();
-  event.currentTarget.classList.add('sorted');
-  event.currentTarget.querySelector('.sort-icon').textContent = tableState.dir==='asc'?'↑':'↓';
 }
 
 function tableSearch(q) {
@@ -3336,6 +3388,8 @@ function drawTable() {
   let rows = tableState.search
     ? tableState.data.filter(r=>tableRowMatches(r, tableState.search))
     : tableState.data;
+  rows = applyResultFilter(rows);
+
 
   document.getElementById('table-count').textContent = `${rows.length} registros`;
   const totalFat = rows.reduce((s,r)=>s+r.fat,0);
@@ -4215,6 +4269,8 @@ function exportXLSX() {
   const enrich = arr => arr.forEach(r => { const a = adjRow(r, gBase, gAdmEff); r.impostos=a.impostos; r.adm=a.adm; r.resAj=a.resAjustado; r.lucratividade = r.fat > 0 ? (r.resAj / r.fat) : 0; });
   enrich(clientAgg); enrich(empresa);
   clientAgg.sort((a,b)=>b.resAj-a.resAj || b.fat-a.fat);
+  const clientAggFiltered = applyResultFilter(clientAgg);
+
   // Mensal usa mesmo esquema (r.fat/vend/alug/res já existem)
   monthly.forEach(m => { const a = adjRow(m, gBase, gAdmEff); m.impostos=a.impostos; m.adm=a.adm; m.resAj=a.resAjustado; });
 
@@ -4243,7 +4299,7 @@ function exportXLSX() {
   // ── Sheet 2: Ranking por Cliente
   const cliRows = [
     ['#','Empresa','Cliente','Faturamento (R$)','Receitas (R$)','Inadimplência (R$)','Insumos (R$)','Aluguéis (R$)','Resultado (R$)','Impostos (R$)','Desp. Adm (R$)','Resultado Ajustado (R$)','Lucratividade (%)'],
-    ...clientAgg.map((r,i)=>[
+    ...clientAggFiltered.map((r,i)=>[
       i+1, r.emp, r.name,
       r.fat, r.rec, r.inad, r.vend, r.alug, r.res, r.impostos, r.adm, r.resAj,
       r.fat>0 ? +(r.resAj/r.fat*100).toFixed(4) : 0
@@ -4308,7 +4364,7 @@ function exportXLSX() {
 ══════════════════════════════════════════════════════ */
 function exportPDF() {
   const data       = getFiltered();
-  const clientAgg  = buildClientAgg(data);
+  let clientAgg    = buildClientAgg(data);
   const empresa    = buildEmpresaRankingAgg(data);
   const monthly    = buildMonthlyAgg(data);
   const { base: gBase } = computeBases(data);
@@ -4316,6 +4372,7 @@ function exportPDF() {
   const enrich = arr => arr.forEach(r => { const a = adjRow(r, gBase, gAdmEff); r.impostos=a.impostos; r.adm=a.adm; r.resAj=a.resAjustado; r.lucratividade = r.fat > 0 ? (r.resAj / r.fat) : 0; });
   enrich(clientAgg); enrich(empresa); enrich(monthly);
   clientAgg.sort((a,b)=>b.resAj-a.resAj || b.fat-a.fat);
+  clientAgg = applyResultFilter(clientAgg);
   const totalFat   = clientAgg.reduce((s,r)=>s+r.fat,0);
   const totalRes   = clientAgg.reduce((s,r)=>s+r.res,0);
   const totalVend  = clientAgg.reduce((s,r)=>s+r.vend,0);
