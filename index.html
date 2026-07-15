@@ -2213,7 +2213,7 @@ function processWorkbook(wb) {
   const companyMap = {};
   receitas.forEach(r  => { if (r.cliente && r.empresa && !companyMap[r.cliente]) companyMap[r.cliente] = r.empresa; });
   inad.forEach(r      => { if (r.cliente && r.empresa)  companyMap[r.cliente] = r.empresa; }); // inad sobrescreve
-  alugueis.forEach(r  => { if (r.cliente && r.fornecedor && !companyMap[r.cliente]) companyMap[r.cliente] = r.fornecedor; });
+  alugueis.forEach(r  => { if (r.cliente && r.fornecedor) companyMap[r.cliente] = r.fornecedor; }); // Aluguéis também ajudam a definir a empresa principal do cliente
   vendas.forEach(r    => { if (r.cliente && r.empresa && !companyMap[r.cliente]) companyMap[r.cliente] = r.empresa; });
   vendas.forEach(r    => { if (r.cliente && !companyMap[r.cliente]) companyMap[r.cliente] = 'LABMEDIC'; });
 
@@ -2330,8 +2330,15 @@ function processWorkbook(wb) {
     }
 
     const fnum = faturaDigits(r.descricao);
-    const tk = fnum ? `${r.cliente}||${r.empresa}||${fnum}` : null;
-    const alugEntry = tk ? alugueisTituloIndex[tk] : null;
+    // ✅ Ajuste: Busca o título na aba Aluguéis usando apenas Cliente e Fatura.
+    // Em alguns casos, o fornecedor na aba Aluguéis (ex: DIAG RIO) pode ser 
+    // diferente da empresa registrada na aba Inadimplência (ex: LABMEDIC) 
+    // para o mesmo título.
+    const alugEntry = fnum ? Object.entries(alugueisTituloIndex).find(([key]) => {
+      const parts = key.split('||');
+      return parts[0] === r.cliente && parts[2] === fnum;
+    })?.[1] : null;
+
     if (alugEntry && remaining > 0) {
       // Título idêntico presente em Aluguéis (mesma FATURA/cliente): o
       // valor já está somado em Aluguéis — neutraliza-se a sobreposição no
