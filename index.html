@@ -1332,8 +1332,8 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
       <div class="param-field" style="min-width:220px">
         <label for="select-inadimplencia-mode">Cálculo do Resultado</label>
         <select id="select-inadimplencia-mode" onchange="setInadimplenciaMode(this.value)" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.55);color:inherit;font-weight:600;cursor:pointer">
-          <option value="com">Ignorar inadimplência</option>
-          <option value="sem">Considerar inadimplência</option>
+          <option value="com">Considerar inadimplência</option>
+          <option value="sem">Ignorar inadimplência</option>
         </select>
       </div>
       <span class="param-caption">Define se a <strong>inadimplência</strong> do cliente no período é descontada do <strong>Resultado</strong> (padrão) ou desconsiderada do cálculo. O Faturamento e a Inadimplência exibidos não se alteram.</span>
@@ -1476,6 +1476,7 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
               <th onclick="sortTable('empresa')">Empresa<span class="sort-icon">↕</span></th>
               <th onclick="sortTable('mes')">Mês<span class="sort-icon">↕</span></th>
               <th onclick="sortTable('cliente')">Cliente<span class="sort-icon">↕</span></th>
+              <th onclick="sortTable('lucratividade')" style="text-align:right">Lucratividade<span class="sort-icon">↕</span></th>
               <th onclick="sortTable('faturamento')" style="text-align:right">Faturamento<span class="sort-icon">↕</span></th>
               <th onclick="sortTable('receitas')" style="text-align:right">Receitas<span class="sort-icon">↕</span></th>
               <th onclick="sortTable('inadimplencia')" style="text-align:right">Inadimplência<span class="sort-icon">↕</span></th>
@@ -1485,7 +1486,6 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
               <th onclick="sortTable('impostos')" style="text-align:right">Impostos<span class="sort-icon">↕</span></th>
               <th onclick="sortTable('adm')" style="text-align:right">Adm (rateio)<span class="sort-icon">↕</span></th>
               <th onclick="sortTable('resAj')" style="text-align:right">Resultado Ajust.<span class="sort-icon">↕</span></th>
-              <th onclick="sortTable('lucratividade')" style="text-align:right">Lucratividade<span class="sort-icon">↕</span></th>
             </tr>
           </thead>
           <tbody id="table-body"></tbody>
@@ -1605,6 +1605,7 @@ const DEFAULT_UNCHECKED_CATEGORIES = [
   'AQUIS. IMÓVEL',
   'DISTRATOS',
   'FINANC. EQUIPAMENTOS',
+  'INSUMOS',
   'ITENS DO MOBILIÁRIO',
   'RETIRADAS/DIVIDENDOS',
   'IMPOSTOS/CONTRIB.',
@@ -2153,14 +2154,31 @@ function processWorkbook(wb) {
   })).filter(r => r.cliente && r.data);
 
   // ── Vendas (a planilha agora traz a coluna EMPRESA — usar quando existir)
-  const vendas = readSheet(wb, 'Vendas').map(r => ({
-    cliente:       norm(fk(r,'Cliente','CLIENTE')),
-    empresa:       norm(fk(r,'EMPRESA','Empresa')),
-    valorTotal:    toNum(fk(r,'Valor Total','VALOR TOTAL')),
-    valorDesconto: toNum(fk(r,'Valor Desconto','VALOR DESCONTO')),
-    data:          toDate(fk(r,'Data de saída','Data de saida','DATA DE SAÍDA','DATA DE SAIDA')),
-    display:       fk(r,'Cliente','CLIENTE') ? String(fk(r,'Cliente','CLIENTE')).trim() : '',
-  })).filter(r => r.cliente && r.data);
+  // Regra de negócio: registros que possuírem QUALQUER valor na coluna I
+  // (índice 8) da aba Vendas devem ser EXCLUÍDOS do cômputo do faturamento.
+  const _vendasWs = wb.Sheets['Vendas'];
+  if (!_vendasWs) throw new Error('Aba "Vendas" não encontrada na planilha.');
+  const _vendasAoA = XLSX.utils.sheet_to_json(_vendasWs, { header: 1, defval: null, raw: true });
+  const _vHeader = (_vendasAoA[0] || []).map(h => (h == null ? '' : String(h)));
+  const _hasColI = (v) => {
+    if (v === null || v === undefined) return false;
+    if (typeof v === 'string') return v.trim() !== '';
+    return true;
+  };
+  const vendas = _vendasAoA.slice(1)
+    .filter(row => Array.isArray(row) && row.length > 0 && !_hasColI(row[8]))
+    .map(row => {
+      const obj = {};
+      _vHeader.forEach((h, i) => { if (h) obj[h] = row[i]; });
+      return {
+        cliente:       norm(fk(obj,'Cliente','CLIENTE')),
+        empresa:       norm(fk(obj,'EMPRESA','Empresa')),
+        valorTotal:    toNum(fk(obj,'Valor Total','VALOR TOTAL')),
+        valorDesconto: toNum(fk(obj,'Valor Desconto','VALOR DESCONTO')),
+        data:          toDate(fk(obj,'Data de saída','Data de saida','DATA DE SAÍDA','DATA DE SAIDA')),
+        display:       fk(obj,'Cliente','CLIENTE') ? String(fk(obj,'Cliente','CLIENTE')).trim() : '',
+      };
+    }).filter(r => r.cliente && r.data);
 
   // ── Aluguéis
   const alugueis = readSheet(wb, 'Aluguéis').map(r => ({
@@ -2517,7 +2535,20 @@ function buildOptions(id, values, labelFn) {
   });
 }
 
-/* Smart client filter: filter visible options AND update filters.cliente */
+/* Smart client filter: filter visible options AND update filters.cliente
+   ────────────────────────────────────────────────────────────────────
+   Regra de UX (REQ-BUG-CLIENTE):
+   • Enquanto a caixa de busca de clientes está VAZIA, o comportamento é
+     o clássico multi-select: "todos" segue "todos" quando o usuário troca
+     Empresa/Ano/Mês, e uma seleção parcial é preservada dentro do novo
+     universo Empresa/Ano/Mês.
+   • Assim que o usuário digita algo na busca, entramos em "modo busca":
+     APENAS os clientes que casam com o texto ficam visíveis no dropdown
+     E somente esses clientes podem estar marcados. Todos os demais
+     (que estão fora da busca) são removidos de `filters.cliente`. Assim,
+     quando o usuário marca o checkbox de um cliente encontrado, é
+     exatamente aquele (ou aqueles) que passa a compor o filtro — sem
+     "vazamento" dos clientes que continuavam marcados invisíveis. */
 function refreshClienteOptions(query) {
   const q = (query || '').toLowerCase().trim();
   // Clients that exist in currently active empresa+ano+mes filters
@@ -2545,15 +2576,32 @@ function refreshClienteOptions(query) {
 
   allValues.cliente = activeClients;
 
-  if (hadAllSelected) {
-    // Preserve the intuitive default: "all clients" stays "all clients"
-    // after changing empresa/ano/mes, so the table keeps listing every
-    // client in the new slice instead of going empty.
+  if (q) {
+    // Modo busca: a seleção efetiva de clientes é limitada ao que está
+    // visível. Preservamos apenas os clientes que casam com a busca e
+    // que já estavam marcados; se nada estava marcado ainda (por exemplo
+    // o usuário acabou de começar a digitar vindo do estado "todos"),
+    // deixamos o subconjunto visível VAZIO para que o próximo clique do
+    // usuário selecione exatamente o cliente desejado — e apenas ele —
+    // sem herdar toda a seleção anterior.
+    const visibleSet = new Set(visibleClients);
+    const prevSelectionInsideSearch = [...filters.cliente].filter(c => visibleSet.has(c));
+    if (hadAllSelected) {
+      // Vindo de "todos os clientes": zera a seleção para que o usuário
+      // marque manualmente somente os clientes encontrados na busca.
+      filters.cliente = new Set();
+    } else {
+      // Já havia uma seleção parcial: mantém somente o que está dentro
+      // da busca; o restante permanece fora do filtro (não vaza).
+      filters.cliente = new Set(prevSelectionInsideSearch);
+    }
+  } else if (hadAllSelected) {
+    // Sem busca ativa e todos estavam marcados: preserva o padrão
+    // intuitivo "todos os clientes" quando muda Empresa/Ano/Mês.
     filters.cliente = new Set(activeClients);
   } else {
-    // User had a custom selection — keep only the clients still active,
-    // and add any newly-active clients so the slice is never empty
-    // when the previous selection no longer intersects the new universe.
+    // Sem busca ativa, seleção parcial: mantém apenas os clientes que
+    // continuam presentes no novo universo Empresa/Ano/Mês.
     for (const c of [...filters.cliente]) {
       if (!activeClients.includes(c)) filters.cliente.delete(c);
     }
@@ -2644,8 +2692,20 @@ function selectAll(id) {
     filters.mes = new Set(allValues.mes);
     document.querySelectorAll('#ms-mes-options input[type=checkbox]').forEach(cb => cb.checked = true);
   } else if (id === 'cliente') {
-    filters.cliente = new Set(allValues.cliente);
-    document.querySelectorAll('#ms-cliente-options input[type=checkbox]').forEach(cb => cb.checked = true);
+    // Se houver busca ativa, "Selecionar todos" seleciona apenas os
+    // clientes VISÍVEIS (que casam com a busca) — comportamento
+    // consistente com o modo busca. Sem busca, seleciona todo o universo.
+    if (clienteSearchQuery) {
+      const q = clienteSearchQuery;
+      const visibleClients = (allValues.cliente || [])
+        .filter(c => c.toLowerCase().includes(q));
+      filters.cliente = new Set(visibleClients);
+      // marca visualmente apenas os visíveis (que são os únicos renderizados)
+      document.querySelectorAll('#ms-cliente-options input[type=checkbox]').forEach(cb => cb.checked = true);
+    } else {
+      filters.cliente = new Set(allValues.cliente);
+      document.querySelectorAll('#ms-cliente-options input[type=checkbox]').forEach(cb => cb.checked = true);
+    }
   } else {
     filters[id] = new Set(allValues[id]);
     document.querySelectorAll(`#ms-${id}-options input[type=checkbox]`).forEach(cb => cb.checked = true);
@@ -2662,6 +2722,28 @@ function selectAll(id) {
 function clearAll(id) {
   filters[id] = new Set();
   document.querySelectorAll(`#ms-${id}-options input[type=checkbox]`).forEach(cb => cb.checked = false);
+  // Ao "Limpar" o filtro de Clientes, também limpamos a caixa de busca
+  // (texto digitado pelo usuário) e o estado interno da query, para que a
+  // ação do botão seja realmente completa — desmarca os checkboxes E
+  // zera a busca imediata. Sem isto, a busca digitada permanecia ativa
+  // mesmo após o clique em "Limpar", filtrando silenciosamente o
+  // dashboard.
+  if (id === 'cliente') {
+    clienteSearchQuery = '';
+    const searchInput = document.getElementById('cliente-search-input');
+    if (searchInput) searchInput.value = '';
+    // Reconstrói o dropdown sem filtro de texto, mostrando todo o
+    // universo de clientes disponível (mas sem marcar nada, pois esta
+    // é a semântica de "Limpar").
+    refreshClienteOptions('');
+    // refreshClienteOptions pode re-selecionar todos os clientes quando
+    // detecta seleção vazia; para preservar a semântica de "Limpar"
+    // (nenhum cliente selecionado), zeramos novamente após o refresh e
+    // sincronizamos os checkboxes visíveis.
+    filters.cliente = new Set();
+    document.querySelectorAll('#ms-cliente-options input[type=checkbox]').forEach(cb => cb.checked = false);
+    updateFilterLabel('cliente');
+  }
   if (id === 'ano') { refreshMesOptions(); refreshClienteOptions(''); }
   if (id === 'empresa' || id === 'mes') refreshClienteOptions('');
   updateFilterLabel(id);
@@ -2773,9 +2855,28 @@ function getFiltered() {
   );
 }
 
-/* Busca imediata: atualiza o dropdown E redesenha o dashboard */
+/* Busca imediata: atualiza o dropdown E redesenha o dashboard.
+   Quando o usuário APAGA todo o conteúdo da caixa de busca (query vazia),
+   restauramos a condição de inicialização do filtro de Clientes: TODOS
+   os clientes do universo ativo (respeitando Empresa/Ano/Mês) ficam
+   selecionados automaticamente — como no primeiro carregamento do
+   dashboard. */
 function onClienteSearch(query) {
   clienteSearchQuery = (query || '').toLowerCase().trim();
+  if (!clienteSearchQuery) {
+    // Universo de clientes válido para o cenário atual de Empresa/Ano/Mês.
+    const activeClients = [...new Set(
+      rawData
+        .filter(r =>
+          filters.empresa.has(r.empresa) &&
+          filters.ano.has(r.year) &&
+          filters.mes.has(r.month)
+        )
+        .map(r => r.displayName)
+    )].filter(Boolean).sort();
+    // Volta ao estado inicial: TODOS os clientes selecionados.
+    filters.cliente = new Set(activeClients);
+  }
   refreshClienteOptions(query);
   renderDashboard();
 }
@@ -3493,6 +3594,14 @@ function drawTable() {
       <td><span class="tag-empresa tag-${empClass}" title="${escapeHtml(empTitle)}">${escapeHtml(empLabel)}</span></td>
       <td style="white-space:nowrap" title="${escapeHtml(mesTitle)}">${r.mesLabel || '—'}</td>
       <td class="client-cell" title="${r.name}">${r.name}</td>
+      <td>
+        <div class="result-bar-wrap">
+          <span style="font-size:.75rem;color:var(--muted);min-width:38px">${fmtPct(pct)}</span>
+          <div class="result-bar">
+            <div class="result-bar-fill" style="width:${barW}%;background:${barCol}"></div>
+          </div>
+        </div>
+      </td>
       <td class="num">${fmtR(r.fat)}</td>
       <td class="num">${fmtR(r.rec)}</td>
       <td class="num" style="color:var(--red)">${fmtR(r.inad)}</td>
@@ -3505,14 +3614,6 @@ function drawTable() {
       <td class="num" style="color:var(--amber)">${fmtR(r.adm)}</td>
       <td class="num">
         <span class="${r.resAj>=0?'result-pos':'result-neg'}">${fmtR(r.resAj)}</span>
-      </td>
-      <td>
-        <div class="result-bar-wrap">
-          <span style="font-size:.75rem;color:var(--muted);min-width:38px">${fmtPct(pct)}</span>
-          <div class="result-bar">
-            <div class="result-bar-fill" style="width:${barW}%;background:${barCol}"></div>
-          </div>
-        </div>
       </td>`;
     body.appendChild(tr);
   });
@@ -3547,6 +3648,7 @@ function renderTableTotals(rows) {
   foot.innerHTML = `
     <tr class="totals-row">
       <td class="totals-label" colspan="5">Total geral · ${rows.length} registro${rows.length===1?'':'s'}</td>
+      <td class="num">${fmtPct(tLuc)}</td>
       <td class="num">${fmtR(tFat)}</td>
       <td class="num">${fmtR(tRec)}</td>
       <td class="num" style="color:var(--red)">${fmtR(tInad)}</td>
@@ -3556,7 +3658,6 @@ function renderTableTotals(rows) {
       <td class="num" style="color:var(--red)">${fmtR(tImp)}</td>
       <td class="num" style="color:var(--amber)">${fmtR(tAdm)}</td>
       <td class="num"><span class="${tResAj>=0?'result-pos':'result-neg'}">${fmtR(tResAj)}</span></td>
-      <td class="num">${fmtPct(tLuc)}</td>
     </tr>`;
 }
 
@@ -4351,11 +4452,11 @@ function exportXLSX() {
 
   // ── Sheet 2: Ranking por Cliente
   const cliRows = [
-    ['#','Empresa','Cliente','Faturamento (R$)','Receitas (R$)','Inadimplência (R$)','Insumos (R$)','Aluguéis (R$)','Resultado (R$)','Impostos (R$)','Desp. Adm (R$)','Resultado Ajustado (R$)','Lucratividade (%)'],
+    ['#','Empresa','Cliente','Lucratividade (%)','Faturamento (R$)','Receitas (R$)','Inadimplência (R$)','Insumos (R$)','Aluguéis (R$)','Resultado (R$)','Impostos (R$)','Desp. Adm (R$)','Resultado Ajustado (R$)'],
     ...clientAggFiltered.map((r,i)=>[
       i+1, r.emp, r.name,
-      r.fat, r.rec, r.inad, r.vend, r.alug, r.res, r.impostos, r.adm, r.resAj,
-      r.fat>0 ? +(r.resAj/r.fat*100).toFixed(4) : 0
+      r.fat>0 ? +(r.resAj/r.fat*100).toFixed(4) : 0,
+      r.fat, r.rec, r.inad, r.vend, r.alug, r.res, r.impostos, r.adm, r.resAj
     ])
   ];
   const wsCli = XLSX.utils.aoa_to_sheet(cliRows);
@@ -4456,6 +4557,7 @@ function exportPDF() {
       <td class="c">${i+1}</td>
       <td class="c"><span class="tag emp-${r.emp.replace(/\s+/g,'-')}">${r.emp}</span></td>
       <td>${r.name}</td>
+      <td class="r muted">${pct}</td>
       <td class="r">${fmtR(r.fat)}</td>
       <td class="r">${fmtR(r.rec)}</td>
       <td class="r red">${fmtR(r.inad)}</td>
@@ -4465,7 +4567,6 @@ function exportPDF() {
       <td class="r red">${fmtR(r.impostos)}</td>
       <td class="r" style="color:#B45309">${fmtR(r.adm)}</td>
       <td class="r" style="color:${r.resAj>=0?'#059669':'#DC2626'};font-weight:700">${fmtR(r.resAj)}</td>
-      <td class="r muted">${pct}</td>
     </tr>`;
   }).join('');
 
@@ -4625,14 +4726,15 @@ function exportPDF() {
   <table>
     <thead><tr>
       <th class="c">#</th><th class="c">Empresa</th><th>Cliente</th>
+      <th class="r">Lucratividade</th>
       <th class="r">Faturamento</th><th class="r">Receitas</th><th class="r">Inadimpl.</th>
       <th class="r">Insumos</th><th class="r">Aluguéis</th><th class="r">Resultado</th>
       <th class="r">Impostos</th><th class="r">Adm</th><th class="r">Res. Ajust.</th>
-      <th class="r">Lucratividade</th>
     </tr></thead>
     <tbody>${tableRows}</tbody>
     <tfoot><tr>
       <td colspan="3">TOTAL GERAL (${nClients} clientes)</td>
+      <td class="r">${(totalFat>0?(totalResAj/totalFat*100):0).toFixed(2).replace('.',',')}%</td>
       <td class="r">${fmtR(totalFat)}</td>
       <td class="r">${fmtR(totalRec)}</td>
       <td class="r">${fmtR(totalInad)}</td>
@@ -4642,7 +4744,6 @@ function exportPDF() {
       <td class="r">${fmtR(totalImp)}</td>
       <td class="r">${fmtR(totalAdm)}</td>
       <td class="r">${fmtR(totalResAj)}</td>
-      <td class="r">${(totalFat>0?(totalResAj/totalFat*100):0).toFixed(2).replace('.',',')}%</td>
     </tr></tfoot>
   </table>
 </div>
@@ -4718,6 +4819,8 @@ document.addEventListener('keydown', e => {
 </script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
