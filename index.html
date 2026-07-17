@@ -914,7 +914,7 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
 .client-tab-pane { display: none; }
 .client-tab-pane.active { display: block; }
 .client-overview-grid { display: grid; gap: 1rem; }
-.client-summary-grid { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: .8rem; }
+.client-summary-grid { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: .8rem; }
 .client-kpi {
   background: linear-gradient(180deg, rgba(22,27,34,.98), rgba(28,34,48,.92));
   border: 1px solid var(--border); border-radius: 18px; padding: 1rem; min-width: 0;
@@ -1407,18 +1407,6 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
       <span class="param-caption">Filtra o Ranking por Cliente, a planilha e os PDFs pelo sinal do <strong>Resultado Ajustado</strong>.</span>
     </div>
 
-    <div class="param-group" id="inadimplencia-mode-group">
-      <div class="param-field" style="min-width:220px">
-        <label for="select-inadimplencia-mode">Cálculo do Resultado</label>
-        <select id="select-inadimplencia-mode" onchange="setInadimplenciaMode(this.value)" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.55);color:inherit;font-weight:600;cursor:pointer">
-          <option value="com">Considerar inadimplência</option>
-          <option value="sem" selected>Ignorar inadimplência</option>
-        </select>
-      </div>
-      <span class="param-caption">O <strong>Faturamento Total</strong> é o valor bruto faturado (Receitas + Inadimplência) e não muda com este filtro. Ele define se a <strong>inadimplência</strong> do período é descontada do <strong>Resultado</strong> (padrão) ou ignorada, como se o título tivesse sido liquidado.</span>
-    </div>
-
-
 
     <!-- Card: clientes filtrados pelo usuário (exibido somente quando há um
          subconjunto de clientes selecionado no filtro "Cliente"). -->
@@ -1437,10 +1425,6 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
     <!-- KPI CARDS -->
     <div class="section-label">Indicadores Globais</div>
     <div class="kpi-grid" id="kpi-grid"></div>
-
-    <!-- STRIPE STATS -->
-    <div class="section-label fade-in fade-in-d1">Composição do Faturamento</div>
-    <div class="waterfall-grid fade-in fade-in-d2" id="stripe-stats"></div>
 
     <!-- CHARTS ROW 1 -->
     <div class="section-label fade-in fade-in-d2">Evolução Temporal</div>
@@ -1639,37 +1623,23 @@ let charts   = {};   // Chart.js instances
 let filters  = { empresa: new Set(), ano: new Set(), mes: new Set(), cliente: new Set(), categoria: new Set() };
 let allValues = { empresa: [], ano: [], mes: [], cliente: [], categoria: [] };
 let resultFilter = 'all'; // 'all' | 'pos' | 'neg' — filtra pelo sinal do Resultado Ajustado
-let inadimplenciaMode = 'sem'; // 'com' = Resultado desconta a inadimplência da competência | 'sem' = Resultado ignora a inadimplência, títulos tratados como liquidados (padrão)
-/* Recalcula o campo "resultado" de cada linha do dataset mestre conforme o
-   modo de cálculo selecionado, sem tocar nos demais campos (faturamento,
-   receitas, inadimplência, vendas, aluguéis permanecem sempre os valores
-   reais da planilha). Como toda a cadeia (KPIs, gráficos, ranking, tabela
-   e exportações) lê sempre "resultado" a partir de rawData/getFiltered(),
-   um único recálculo aqui já propaga para o dashboard inteiro.
-   IMPORTANTE: "faturamento" (= Faturamento Total) é o valor BRUTO faturado
-   na competência — Títulos emitidos + Inadimplência (ver processWorkbook:
-   faturamento = receitas + inadimplencia) — e é essa base bruta que serve
-   de referência para Impostos e demais percentuais do dashboard. A dedução
-   da inadimplência (valor faturado e não recebido) acontece exclusivamente
-   na apuração do Resultado, conforme o filtro "Cálculo do Resultado":
-     'com' (considerar/descontar) → Resultado = Faturamento − Insumos
-                                     − Inadimplência (desconta o valor não
-                                     recebido; resultado em base de caixa)
-     'sem' (ignorar, títulos tratados como liquidados) → Resultado =
-                                     Faturamento − Insumos (não desconta;
-                                     simula quitação integral dos títulos) */
+/* Recalcula o campo "resultado" de cada linha do dataset mestre.
+   Como toda a cadeia (KPIs, gráficos, ranking, tabela e exportações) lê
+   sempre "resultado" a partir de rawData/getFiltered(), um único recálculo
+   aqui já propaga para o dashboard inteiro.
+   IMPORTANTE: "faturamento" (= Faturamento-Base) vem da aba "Faturamento"
+   (competência = VENCIMENTO) e é essa base que serve de referência para
+   Impostos, rateio de Despesas Administrativas e margens Bruta/Líquida.
+   "receitas" (= Receita Liquidada, ver r.receitas / cards e colunas
+   "Receita Liquidada") vem da aba "Receitas" (competência = LIQUIDAÇÃO) e é
+   um indicador à parte — NÃO compõe nem influencia o Faturamento-Base ou o
+   Resultado. Tanto a Inadimplência quanto os Aluguéis também NÃO compõem
+   nem influenciam o Faturamento-Base ou o Resultado: são exibidos apenas
+   como parâmetros comparativos (percentual sobre o Faturamento-Base) em
+   seus próprios cards/colunas (r.inadimplencia e r.alugueis). */
 function recalcResultados(data) {
   data.forEach(r => {
-    r.resultado = r.faturamento - r.vendas - (inadimplenciaMode === 'com' ? r.inadimplencia : 0);
-  });
-}
-function setInadimplenciaMode(v) {
-  inadimplenciaMode = (v === 'sem') ? 'sem' : 'com';
-  if (!rawData.length) return;
-  recalcResultados(rawData);
-  requestDashboardRefresh({
-    showLoader: true,
-    message: 'Recalculando resultado conforme inadimplência…'
+    r.resultado = r.faturamento - r.vendas;
   });
 }
 function setResultFilter(v) {
@@ -2068,8 +2038,8 @@ function handleFile(file) {
         cellNF: false,
         cellText: false
       });
-      updateImportOverlay('Extraindo Receitas…');
-      setStatus('Extraindo Receitas…', 45);
+      updateImportOverlay('Extraindo Faturamento…');
+      setStatus('Extraindo Faturamento…', 45);
       const data = processWorkbook(wb);
       updateImportOverlay('Extraindo Despesas…');
       setStatus('Extraindo Despesas…', 60);
@@ -2077,9 +2047,9 @@ function handleFile(file) {
       updateImportOverlay('Calculando resultados…');
       setStatus('Calculando resultados…', 75);
       rawData = data;
-      if (!rawData.length) throw new Error('Nenhum dado encontrado. Verifique se as abas Receitas, Inadimplência, Vendas e Aluguéis existem e têm dados.');
-      // Aplica o modo de cálculo de inadimplência atualmente selecionado
-      // (mantém o comportamento pré-existente quando o modo é 'com').
+      if (!rawData.length) throw new Error('Nenhum dado encontrado. Verifique se as abas Faturamento, Inadimplência, Vendas e Aluguéis existem e têm dados.');
+      // Garante que "resultado" (Faturamento-Base − Insumos) esteja
+      // calculado para todas as linhas do dataset recém-importado.
       recalcResultados(rawData);
       // ✅ Correção: sem isto, o percentual inicial do campo (%) Impostos
       // (ex.: 18%) só entrava no cálculo depois que o usuário alterasse o
@@ -2087,7 +2057,7 @@ function handleFile(file) {
       syncTaxParamFromInput();
       const totalFat = rawData.reduce((s,r)=>s+r.faturamento,0);
       updateImportOverlay(`${rawData.length} registros carregados…`);
-      setStatus(`✅ ${rawData.length} registros carregados | Faturamento total: R$ ${totalFat.toLocaleString('pt-BR',{minimumFractionDigits:2})}`, 90);
+      setStatus(`✅ ${rawData.length} registros carregados | Faturamento-Base: R$ ${totalFat.toLocaleString('pt-BR',{minimumFractionDigits:2})}`, 90);
       buildFilterOptions();
       setTimeout(() => {
         setStatus('Pronto!', 100);
@@ -2257,22 +2227,49 @@ function requestDashboardRefresh({ showLoader = false, message = 'Recalculando d
 
 function processWorkbook(wb) {
 
-  // ── Receitas
-  // Regra de negócio: registros que possuírem QUALQUER valor na coluna H
-  // ("NÃO CLIENTE") da aba Receitas devem ser EXCLUÍDOS do cômputo do
-  // faturamento (não representam receita de cliente da operação).
+  // ── Faturamento
+  // Faturamento-Base: vem da aba "Faturamento", competência = VENCIMENTO.
+  // Lógica de cálculo inalterada. Regra de negócio: registros que
+  // possuírem QUALQUER valor na coluna H ("NÃO CLIENTE") da aba
+  // Faturamento devem ser EXCLUÍDOS do cômputo do faturamento (não
+  // representam receita de cliente da operação).
   const isNaoCliente = (v) => {
     if (v === null || v === undefined) return false;
     if (typeof v === 'string') return v.trim() !== '';
     return true;
   };
-  const receitas = readSheet(wb, 'Receitas')
+  const faturamentoRows = readSheet(wb, 'Faturamento')
     .filter(r => !isNaoCliente(fk(r,'NÃO CLIENTE','NAO CLIENTE','Não Cliente','Nao Cliente')))
     .map(r => ({
       cliente:  norm(fk(r,'CLIENTE')),
       empresa:  norm(fk(r,'EMPRESA')),
       valor:    toNum(fk(r,'VALOR')),
       data:     toDate(fk(r,'VENCIMENTO')),
+      display:  fk(r,'CLIENTE') ? String(fk(r,'CLIENTE')).trim() : '',
+    })).filter(r => r.cliente && r.data);
+  // Mantido por compatibilidade com o restante do processamento abaixo
+  // (resolução de empresa por período, nomes de exibição etc.), que já
+  // usava esta variável antes de ela ser renomeada para faturamentoRows.
+  const receitas = faturamentoRows;
+
+  // ── Receita Liquidada
+  // Card/coluna "Receita Liquidada": passa a vir da aba "Receitas" (e não
+  // mais da aba "Faturamento"). Regra de negócio: a competência de um
+  // título da aba Receitas é a sua própria data de LIQUIDAÇÃO (coluna E)
+  // — referência DIFERENTE da usada pelo Faturamento (VENCIMENTO). A
+  // LIQUIDAÇÃO também funciona como CONDIÇÃO de entrada: só título
+  // efetivamente liquidado (LIQUIDAÇÃO preenchida) entra no montante,
+  // independentemente do mês em que ele esteja contabilizado/vencido.
+  // Títulos sem LIQUIDAÇÃO preenchida (ainda não liquidados) ficam de fora.
+  // Mesma regra de negócio da aba Faturamento: registros com QUALQUER
+  // valor na coluna "NÃO CLIENTE" também devem ser EXCLUÍDOS aqui.
+  const receitasLiquidadasRows = readSheet(wb, 'Receitas')
+    .filter(r => !isNaoCliente(fk(r,'NÃO CLIENTE','NAO CLIENTE','Não Cliente','Nao Cliente')))
+    .map(r => ({
+      cliente:  norm(fk(r,'CLIENTE')),
+      empresa:  norm(fk(r,'EMPRESA')),
+      valor:    toNum(fk(r,'VALOR')),
+      data:     toDate(fk(r,'LIQUIDAÇÃO','LIQUIDACAO','Liquidação','Liquidacao')),
       display:  fk(r,'CLIENTE') ? String(fk(r,'CLIENTE')).trim() : '',
     })).filter(r => r.cliente && r.data);
 
@@ -2322,14 +2319,15 @@ function processWorkbook(wb) {
   })).filter(r => r.cliente && r.data);
 
   // Debug no console
-  console.log(`[Grupo Labmedic] Receitas: ${receitas.length} linhas | Soma: R$ ${receitas.reduce((s,r)=>s+r.valor,0).toFixed(2)}`);
+  console.log(`[Grupo Labmedic] Faturamento: ${faturamentoRows.length} linhas | Soma: R$ ${faturamentoRows.reduce((s,r)=>s+r.valor,0).toFixed(2)}`);
+  console.log(`[Grupo Labmedic] Receita Liquidada: ${receitasLiquidadasRows.length} linhas | Soma: R$ ${receitasLiquidadasRows.reduce((s,r)=>s+r.valor,0).toFixed(2)}`);
   console.log(`[Grupo Labmedic] Inadimplência: ${inad.length} linhas | Soma: R$ ${inad.reduce((s,r)=>s+r.valor,0).toFixed(2)}`);
   console.log(`[Grupo Labmedic] Vendas: ${vendas.length} linhas | Soma líquida: R$ ${vendas.reduce((s,r)=>s+(r.valorTotal-r.valorDesconto),0).toFixed(2)}`);
   console.log(`[Grupo Labmedic] Aluguéis: ${alugueis.length} linhas | Soma: R$ ${alugueis.reduce((s,r)=>s+r.valor,0).toFixed(2)}`);
 
   // ── Display names (nome original, não normalizado)
   const displayNames = {};
-  [...receitas, ...inad, ...alugueis].forEach(r => {
+  [...receitas, ...receitasLiquidadasRows, ...inad, ...alugueis].forEach(r => {
     if (r.cliente && r.display && !displayNames[r.cliente]) displayNames[r.cliente] = r.display;
   });
   vendas.forEach(r => {
@@ -2347,24 +2345,40 @@ function processWorkbook(wb) {
   // ── Aggregate by client + empresa + year + month
   const agg = {}; // key: cliente|empresa|year|month
 
+  // ⚠️ Datas de planilha (cellDates:true / serial Excel) são construídas em
+  // UTC (ver toDate()). Usar os getters LOCAIS (getFullYear/getMonth) para
+  // extrair ano/mês pode "vazar" o fuso horário do navegador: em fusos
+  // negativos (ex.: America/Sao_Paulo, UTC-3) uma data-limite como
+  // 01/01/2025 00:00 UTC vira 31/12/2024 21:00 local, deslocando o
+  // registro para a competência ERRADA (mês/ano anterior). Por isso toda
+  // extração de ano/mês abaixo usa os getters UTC (getUTCFullYear/
+  // getUTCMonth), que refletem a data tal como ela está na planilha,
+  // independente do fuso horário de quem abre o dashboard.
   function key(cliente, empresa, date) {
-    const y = date.getFullYear();
-    const m = date.getMonth() + 1;
+    const y = date.getUTCFullYear();
+    const m = date.getUTCMonth() + 1;
     return `${cliente}||${empresa}||${y}||${m}`;
   }
   function ensure(cliente, empresa, date) {
     const k = key(cliente, empresa, date);
     if (!agg[k]) agg[k] = {
       cliente, empresa,
-      year: date.getFullYear(), month: date.getMonth()+1,
-      receitas: 0, inadimplencia: 0, vendas: 0, alugueis: 0
+      year: date.getUTCFullYear(), month: date.getUTCMonth()+1,
+      faturamento: 0, receitas: 0, inadimplencia: 0, vendas: 0, alugueis: 0
     };
     return agg[k];
   }
 
-  // ── Receitas: soma cheia ao bucket (valor efetivamente liquidado/recebido
-  //    no período, por cliente/empresa).
-  receitas.forEach(r => {
+  // ── Faturamento: soma cheia ao bucket, por cliente/empresa, na
+  //    competência de VENCIMENTO (aba "Faturamento" — lógica inalterada).
+  faturamentoRows.forEach(r => {
+    ensure(r.cliente, r.empresa, r.data).faturamento += r.valor;
+  });
+
+  // ── Receita Liquidada: soma cheia ao bucket (valor efetivamente
+  //    liquidado), por cliente/empresa, na competência de LIQUIDAÇÃO
+  //    (aba "Receitas" — referência DIFERENTE da usada pelo Faturamento).
+  receitasLiquidadasRows.forEach(r => {
     ensure(r.cliente, r.empresa, r.data).receitas += r.valor;
   });
 
@@ -2396,7 +2410,7 @@ function processWorkbook(wb) {
   const empByPeriod = {}; // `${cliente}||${y}||${m}` → { empresa: somaFat }
   function bumpPeriod(cliente, empresa, date, val) {
     if (!cliente || !empresa || !date) return;
-    const k = `${cliente}||${date.getFullYear()}||${date.getMonth()+1}`;
+    const k = `${cliente}||${date.getUTCFullYear()}||${date.getUTCMonth()+1}`;
     if (!empByPeriod[k]) empByPeriod[k] = {};
     empByPeriod[k][empresa] = (empByPeriod[k][empresa] || 0) + (val || 0);
   }
@@ -2410,7 +2424,7 @@ function processWorkbook(wb) {
   vendas.forEach(r   => bumpPeriod(r.cliente, r.empresa, r.data, (r.valorTotal - r.valorDesconto)));
 
   function resolveEmpresaForVenda(r) {
-    const k = `${r.cliente}||${r.data.getFullYear()}||${r.data.getMonth()+1}`;
+    const k = `${r.cliente}||${r.data.getUTCFullYear()}||${r.data.getUTCMonth()+1}`;
     const cand = empByPeriod[k];
     if (cand) {
       // empresa com maior volume de faturamento naquele período
@@ -2432,28 +2446,24 @@ function processWorkbook(wb) {
   });
 
   return Object.values(agg).map(row => {
-    // Faturamento Total do período (por cliente/empresa/ano/mês):
-    //   Receitas Liquidadas + Inadimplência do período.
-    //   "Faturamento" é o total efetivamente FATURADO ao cliente na
-    //   competência, tenha sido recebido (Receitas) ou não (Inadimplência) —
-    //   é, portanto, sempre MAIOR OU IGUAL às Receitas Liquidadas, e é essa
-    //   base bruta que serve de referência para o cálculo de Impostos (o
-    //   imposto incide sobre o valor faturado, não sobre o valor recebido).
-    //   A dedução da inadimplência (valor faturado e não recebido) acontece
-    //   apenas na apuração do RESULTADO (ver recalcResultados/
-    //   setInadimplenciaMode), não na Receita/Faturamento.
-    //   Aluguéis é receita própria (não é billing de serviços de laboratório)
-    //   e por isso não compõe este total — é apurado e exibido em seu
-    //   próprio card/coluna (row.alugueis).
-    const faturamento = row.receitas + row.inadimplencia;
+    // Faturamento-Base do período (por cliente/empresa/ano/mês): vem da
+    //   aba "Faturamento" (competência = VENCIMENTO) — é a base que serve
+    //   de referência para Impostos, rateio de Despesas Administrativas e
+    //   margens Bruta/Líquida.
+    //   Nem Receita Liquidada (row.receitas, aba "Receitas"), nem
+    //   Inadimplência, nem Aluguéis compõem ou influenciam este total:
+    //   todos são apurados à parte e exibidos apenas como parâmetros
+    //   comparativos em relação ao Faturamento-Base, em seu próprio
+    //   card/coluna (row.receitas, row.inadimplencia e row.alugueis).
+    const faturamento = row.faturamento;
     return {
       ...row,
       displayName: displayNames[row.cliente] || row.cliente,
       faturamento,
       // Valor inicial; imediatamente após processWorkbook(), handleFile()
       // chama recalcResultados(rawData), que é a fonte única de verdade
-      // para "resultado" e já aplica o modo de inadimplência selecionado.
-      resultado: faturamento - row.vendas - (inadimplenciaMode === 'com' ? row.inadimplencia : 0),
+      // para "resultado" (Faturamento-Base − Insumos).
+      resultado: faturamento - row.vendas,
     };
   });
 }
@@ -2475,8 +2485,10 @@ function processDespesas(wb) {
       credor:      fk(r, 'CREDOR/FORNECEDOR') ? String(fk(r, 'CREDOR/FORNECEDOR')).trim() : '',
       valor:       toNum(fk(r, 'VALOR')),
       data,
-      year:        data ? data.getFullYear() : null,
-      month:       data ? data.getMonth() + 1 : null,
+      // getUTC* evita deslocamento de competência por fuso horário (ver
+      // comentário em key()/ensure() acima, dentro de processWorkbook).
+      year:        data ? data.getUTCFullYear() : null,
+      month:       data ? data.getUTCMonth() + 1 : null,
     };
   }).filter(r => r.natureza && r.data);
   console.log(`[Grupo Labmedic] Despesas: ${rows.length} linhas | Soma: R$ ${rows.reduce((s,r)=>s+r.valor,0).toFixed(2)}`);
@@ -2993,7 +3005,6 @@ function renderDashboard() {
   recomputeDesmarcadasTotal(); // Despesas Desmarcadas R$ = soma das categorias NÃO selecionadas x Empresa/Ano/Mês do cenário
   const data = getFiltered();
   renderKPIs(data);
-  renderStripes(data);
   renderMonthlyChart(data);
   renderEmpresaChart(data);
   renderEmpresaResultChart(data);
@@ -3007,6 +3018,12 @@ function renderDashboard() {
 /* ── KPI CARDS ── */
 function renderKPIs(data) {
   const fat   = data.reduce((s,r)=>s+r.faturamento,0);
+  // Receita Liquidada (aba "Receitas", competência = LIQUIDAÇÃO) é apurada
+  // à parte do Faturamento-Base (aba "Faturamento", competência =
+  // VENCIMENTO) — referências de competência DIFERENTES entre as duas
+  // abas, então um título liquidado num mês pode ter vencido/sido
+  // faturado em outro mês, fazendo rec/fat ficar tanto acima quanto
+  // abaixo de 100% (ver kpi-sub abaixo).
   const rec   = data.reduce((s,r)=>s+r.receitas,0);
   const inad  = data.reduce((s,r)=>s+r.inadimplencia,0);
   const vend  = data.reduce((s,r)=>s+r.vendas,0);
@@ -3025,15 +3042,15 @@ function renderKPIs(data) {
   g.innerHTML = `
     <div class="kpi-card blue fade-in">
       <span class="kpi-icon">📈</span>
-      <div class="kpi-label">Faturamento Total</div>
+      <div class="kpi-label">Faturamento-Base</div>
       <div class="kpi-value" style="font-size:${kpiFontSize(fmtR(fat))}">${fmtR(fat)}</div>
       <div class="kpi-sub">${fat>0?fmtPct(1):'-'} do total consolidado</div>
     </div>
     <div class="kpi-card green fade-in fade-in-d1">
       <span class="kpi-icon">✅</span>
-      <div class="kpi-label">Títulos Emitidos</div>
+      <div class="kpi-label">Receita Liquidada</div>
       <div class="kpi-value" style="font-size:${kpiFontSize(fmtR(rec))}">${fmtR(rec)}</div>
-      <div class="kpi-sub">${rec>0?fmtPct(1):'-'} do faturamento do período</div>
+      <div class="kpi-sub">${fat>0?fmtPct(rec/fat):'-'} do faturamento do período</div>
     </div>
     <div class="kpi-card red fade-in fade-in-d2">
       <span class="kpi-icon">⚠️</span>
@@ -3091,60 +3108,6 @@ function renderKPIs(data) {
 }
 
 /* ── STRIPE STATS ── */
-function renderStripes(data) {
-  const rec  = data.reduce((s,r)=>s+r.receitas,0);
-  const inad = data.reduce((s,r)=>s+r.inadimplencia,0);
-  const alug = data.reduce((s,r)=>s+r.alugueis,0);
-  const fat  = data.reduce((s,r)=>s+r.faturamento,0); // Faturamento bruto = Receitas + Inadimplência
-  const pos  = data.filter(r=>r.resultado>0).reduce((s,r)=>s+r.resultado,0);
-  const neg  = Math.abs(data.filter(r=>r.resultado<0).reduce((s,r)=>s+r.resultado,0));
-  const g = document.getElementById('stripe-stats');
-  g.innerHTML = `
-    <div class="stat-stripe">
-      <div class="stripe-icon stripe-blue">💵</div>
-      <div class="stripe-info">
-        <div class="stripe-label">Títulos Emitidos</div>
-        <div class="stripe-val">${fmtR(rec)}</div>
-      </div>
-    </div>
-    <div class="stat-stripe">
-      <div class="stripe-icon stripe-red">🔴</div>
-      <div class="stripe-info">
-        <div class="stripe-label">Inadimplência Histórica</div>
-        <div class="stripe-val" style="color:var(--red)">${fmtR(inad)}</div>
-      </div>
-    </div>
-    <div class="stat-stripe">
-      <div class="stripe-icon stripe-purple">🏠</div>
-      <div class="stripe-info">
-        <div class="stripe-label">Receita de Aluguéis</div>
-        <div class="stripe-val" style="color:var(--purple)">${fmtR(alug)}</div>
-      </div>
-    </div>
-    <div class="stat-stripe">
-      <div class="stripe-icon stripe-green">✅</div>
-      <div class="stripe-info">
-        <div class="stripe-label">Resultado Positivo Total</div>
-        <div class="stripe-val" style="color:var(--green)">${fmtR(pos)}</div>
-      </div>
-    </div>
-    <div class="stat-stripe">
-      <div class="stripe-icon stripe-red">❌</div>
-      <div class="stripe-info">
-        <div class="stripe-label">Resultado Negativo Total</div>
-        <div class="stripe-val" style="color:var(--red)">${fmtR(neg)}</div>
-      </div>
-    </div>
-    <div class="stat-stripe">
-      <div class="stripe-icon stripe-amber">📦</div>
-      <div class="stripe-info">
-        <div class="stripe-label">Aluguéis + Resultado</div>
-        <div class="stripe-val">${fmtR(pos-neg+alug)}</div>
-      </div>
-    </div>
-  `;
-}
-
 /* ── MONTHLY CHART ── */
 let monthlyChartMode = 'bar';
 function setChartMode(chartId, mode, btn) {
@@ -3392,7 +3355,7 @@ function renderInadChart(data) {
     data:{
       labels,
       datasets:[
-        { label:'Títulos Emitidos', data:labels.map(k=>byEmp[k].rec),  backgroundColor:'rgba(16,185,129,.6)', borderColor:'#10B981', borderWidth:1 },
+        { label:'Receita Liquidada', data:labels.map(k=>byEmp[k].rec),  backgroundColor:'rgba(16,185,129,.6)', borderColor:'#10B981', borderWidth:1 },
         { label:'Inadimplência',       data:labels.map(k=>byEmp[k].inad), backgroundColor:'rgba(239,68,68,.6)',  borderColor:'#EF4444', borderWidth:1 },
       ]
     },
@@ -3836,6 +3799,11 @@ function buildClientDetail(clientKey, emp) {
   const inadRate  = totals.fat > 0 ? totals.inad / totals.fat : 0;
   const vendRate  = totals.fat > 0 ? totals.vend / totals.fat : 0;
   const alugRate  = totals.fat > 0 ? totals.alug / totals.fat : 0;
+  // Receita Liquidada (aba Receitas, competência = LIQUIDAÇÃO) x
+  // Faturamento-Base (aba Faturamento, competência = VENCIMENTO) do
+  // mesmo cliente/período filtrado — competências diferentes entre as
+  // duas abas, então o percentual pode passar de 100% ou ficar abaixo.
+  const recRate   = totals.fat > 0 ? totals.rec / totals.fat : 0;
   const rank      = Math.max(1, tableState.data.findIndex(r => r.clientKey === clientKey && r.emp === emp) + 1);
   const bestMonth = [...monthly].sort((a,b) => b.resAj - a.resAj)[0] || monthly[0];
   const worstMonth = [...monthly].sort((a,b) => a.resAj - b.resAj)[0] || monthly[0];
@@ -3890,6 +3858,7 @@ function buildClientDetail(clientKey, emp) {
     inadRate,
     vendRate,
     alugRate,
+    recRate,
     rank,
     healthScore,
     healthLabel,
@@ -3924,9 +3893,14 @@ function buildClientOverviewHTML(detail) {
     <div class="client-overview-grid">
       <div class="client-summary-grid">
         <div class="client-kpi">
-          <div class="client-kpi-label">Títulos Emitidos </div>
+          <div class="client-kpi-label">Faturamento</div>
           <div class="client-kpi-value">${fmtR(detail.totals.fat)}</div>
-          <div class="client-kpi-sub">Títulos Emitidos + inadimplência (bruto)</div>
+          <div class="client-kpi-sub">Faturamento-Base do cliente no período</div>
+        </div>
+        <div class="client-kpi">
+          <div class="client-kpi-label">Receita Liquidada</div>
+          <div class="client-kpi-value">${fmtR(detail.totals.rec)}</div>
+          <div class="client-kpi-sub">${fmtPct(detail.recRate)} do Faturamento-Base do cliente</div>
         </div>
         <div class="client-kpi">
           <div class="client-kpi-label">Margem Bruta</div>
@@ -4717,8 +4691,8 @@ function exportPDF() {
 
 <!-- ── KPI ROW -->
 <div class="kpi-row">
-  <div class="kpi"><div class="kpi-label">Faturamento Total</div><div class="kpi-val">${fmtR(totalFat)}</div></div>
-  <div class="kpi"><div class="kpi-label">Títulos Emitidos</div><div class="kpi-val green">${fmtR(totalRec)}</div></div>
+  <div class="kpi"><div class="kpi-label">Faturamento-Base</div><div class="kpi-val">${fmtR(totalFat)}</div></div>
+  <div class="kpi"><div class="kpi-label">Receita Liquidada</div><div class="kpi-val green">${fmtR(totalRec)}</div></div>
   <div class="kpi"><div class="kpi-label">Inadimplência</div><div class="kpi-val red">${fmtR(totalInad)}</div></div>
   <div class="kpi"><div class="kpi-label">Custo dos Insumos</div><div class="kpi-val">${fmtR(totalVend)}</div></div>
   <div class="kpi"><div class="kpi-label">Margem Bruta</div><div class="kpi-val ${totalRes>=0?'green':'red'}">${fmtR(totalRes)}</div></div>
