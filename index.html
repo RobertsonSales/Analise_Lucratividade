@@ -980,6 +980,46 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
   .client-modal-actions .client-modal-btn { flex: 1; }
 }
 
+/* ─── MODAL: MÉTRICAS DE PATRIMÔNIO AFERIDO ─────── */
+.pat-filters-grid { display: flex; flex-wrap: wrap; gap: .75rem; align-items: flex-start; margin-bottom: 1rem; }
+.pat-filters-grid .ms-wrapper { flex-shrink: 0; }
+.pat-date-range {
+  display: flex; align-items: center; gap: .5rem;
+  background: var(--surface2); border: 1px solid var(--border);
+  padding: .45rem .75rem; border-radius: var(--radius-sm);
+}
+.pat-date-range label { font-size: .78rem; color: var(--muted); font-weight: 500; white-space: nowrap; }
+.pat-date-range span.sep { color: var(--muted); font-size: .8rem; }
+.pat-date-range input[type=date] {
+  background: var(--surface3); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-family: inherit; font-size: .82rem; padding: .3rem .45rem;
+}
+.pat-date-range input[type=date]:focus { outline: none; border-color: var(--accent); }
+.pat-bar-row { display: flex; align-items: center; gap: .6rem; padding: .38rem 0; font-size: .82rem; }
+.pat-bar-label { flex: 0 0 auto; width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.pat-bar-track { flex: 1; height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; }
+.pat-bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), #8B5CF6); }
+.pat-bar-value { flex: 0 0 auto; font-size: .76rem; color: var(--muted); min-width: 30px; text-align: right; }
+/* ── Lista de equipamentos do cliente (modal de detalhes) ──
+   Mesma estrutura visual usada no relatório em PDF (buildClientReportHTML):
+   grade de cartões por categoria, cada um com uma mini-tabela de
+   equipamentos e quantidade — para que a tela e o PDF fiquem idênticos. */
+.equip-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: .75rem; margin-top: .3rem; }
+.equip-card { border:1px solid var(--border); border-radius: 14px; padding: .7rem .85rem .5rem; background: rgba(15,23,42,.55); }
+.equip-card-title { display:flex; justify-content:space-between; gap:.5rem; font-weight:700; font-size:.82rem; color:var(--text); padding-bottom:.4rem; margin-bottom:.35rem; border-bottom:1px solid var(--border); }
+.equip-mini { width:100%; border-collapse:collapse; font-size:.8rem; }
+.equip-mini td { padding:.32rem .15rem; border-bottom:1px dashed var(--border); color:var(--text); }
+.equip-mini tr:last-child td { border-bottom:none; }
+.equip-mini td.num { text-align:right; color:var(--muted); font-variant-numeric: tabular-nums; }
+@media (max-width: 760px) {
+  .equip-grid { grid-template-columns: 1fr; }
+}
+#pat-table td, #pat-table th { white-space: nowrap; }
+#pat-table td:nth-child(1), #pat-table td:nth-child(2) { white-space: normal; }
+@media (max-width: 760px) {
+  .pat-date-range { width: 100%; flex-wrap: wrap; }
+}
+
 
 /* ─── HEALTH SCORE (Signature Element) ─────────── */
 .health-section {
@@ -1407,6 +1447,14 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
       <span class="param-caption">Filtra o Ranking por Cliente, a planilha e os PDFs pelo sinal do <strong>Resultado Ajustado</strong>.</span>
     </div>
 
+    <div class="param-group" id="patrimonio-metrics-group">
+      <div class="param-field" style="min-width:220px">
+        <button type="button" class="btn-clear-all" id="btn-open-patrimonio" onclick="openPatrimonioModal()" style="width:100%;justify-content:center;color:var(--accent2);border-color:rgba(96,165,250,.35)">
+          📦 Métricas de Patrimônio
+        </button>
+      </div>
+      <span class="param-caption">Abre um painel com os equipamentos da aba <strong>Patrimônio aferido</strong>, com filtros próprios por Cliente/Unidade, Categoria, Equipamento, Região e período de Instalação.</span>
+    </div>
 
     <!-- Card: clientes filtrados pelo usuário (exibido somente quando há um
          subconjunto de clientes selecionado no filtro "Cliente"). -->
@@ -1542,6 +1590,7 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
               <th onclick="sortTable('mes')">Mês<span class="sort-icon">↕</span></th>
               <th onclick="sortTable('cliente')">Cliente<span class="sort-icon">↕</span></th>
               <th onclick="sortTable('lucratividade')" style="text-align:right">Lucratividade<span class="sort-icon">↕</span></th>
+              <th onclick="sortTable('equipamentos')" style="text-align:right" title="Quantidade de equipamentos vinculados ao cliente na aba Patrimônio aferido">Equipamentos<span class="sort-icon">↕</span></th>
               <th onclick="sortTable('faturamento')" style="text-align:right">Faturamento<span class="sort-icon">↕</span></th>
               <th onclick="sortTable('receitas')" style="text-align:right">Receitas<span class="sort-icon">↕</span></th>
               <th onclick="sortTable('inadimplencia')" style="text-align:right">Inadimplência<span class="sort-icon">↕</span></th>
@@ -1549,7 +1598,7 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
               <th onclick="sortTable('alugueis')" style="text-align:right">Aluguéis<span class="sort-icon">↕</span></th>
               <th onclick="sortTable('resultado')" style="text-align:right">Resultado<span class="sort-icon">↕</span></th>
               <th onclick="sortTable('impostos')" style="text-align:right">Impostos<span class="sort-icon">↕</span></th>
-              <th onclick="sortTable('adm')" style="text-align:right">Adm (rateio)<span class="sort-icon">↕</span></th>
+              <th onclick="sortTable('adm')" style="text-align:right">Custo Adm. (rateio)<span class="sort-icon">↕</span></th>
               <th onclick="sortTable('resAj')" style="text-align:right">Resultado Ajust.<span class="sort-icon">↕</span></th>
             </tr>
           </thead>
@@ -1613,6 +1662,156 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
   </div>
 </div>
 
+<!-- MODAL: Métricas de Patrimônio Aferido -->
+<div class="client-modal" id="patrimonio-modal" onclick="if (event.target === this) closePatrimonioModal()">
+  <div class="client-modal-panel">
+    <div class="client-modal-header">
+      <div class="client-modal-title">
+        <h3>📦 Métricas de Patrimônio Aferido</h3>
+        <div class="client-modal-subtitle">
+          <span id="pat-modal-meta"></span>
+        </div>
+      </div>
+      <div class="client-modal-actions">
+        <button class="client-modal-btn" onclick="patClearAllFilters()">↺ Limpar filtros</button>
+        <button class="client-modal-btn primary" onclick="exportPatrimonioPDF()">🖨️ PDF A4 (paisagem)</button>
+        <button class="client-modal-btn ghost" onclick="closePatrimonioModal()">✕ Fechar</button>
+      </div>
+    </div>
+    <div class="client-modal-body">
+      <div id="pat-empty-state" style="display:none;padding:2.5rem 1rem;text-align:center;color:var(--muted)">
+        Aba <strong>"Patrimônio aferido"</strong> não foi encontrada nesta planilha (ou não possui registros elegíveis).
+      </div>
+      <div id="pat-modal-inner">
+        <div class="pat-filters-grid">
+          <div class="ms-wrapper" id="ms-patCliente-wrap">
+            <div class="ms-trigger" id="ms-patCliente-trigger" onclick="patToggleDropdown('patCliente')">
+              <span>🏥</span>
+              <span id="ms-patCliente-label">Cliente</span>
+              <span class="ms-badge" id="ms-patCliente-badge" style="display:none"></span>
+              <span class="icon">▾</span>
+            </div>
+            <div class="ms-dropdown" id="ms-patCliente-dropdown">
+              <div class="ms-search"><input type="text" id="ms-patCliente-search-input" placeholder="🔍 Buscar cliente…" oninput="patFilterOptions('patCliente',this.value)"></div>
+              <div class="ms-actions">
+                <button onclick="patSelectAll('patCliente')">Selecionar todos</button>
+                <button onclick="patClearAll('patCliente')">Limpar</button>
+              </div>
+              <div class="ms-options" id="ms-patCliente-options"></div>
+            </div>
+          </div>
+
+          <div class="ms-wrapper" id="ms-patUnidade-wrap">
+            <div class="ms-trigger" id="ms-patUnidade-trigger" onclick="patToggleDropdown('patUnidade')">
+              <span>🏢</span>
+              <span id="ms-patUnidade-label">Unidade</span>
+              <span class="ms-badge" id="ms-patUnidade-badge" style="display:none"></span>
+              <span class="icon">▾</span>
+            </div>
+            <div class="ms-dropdown" id="ms-patUnidade-dropdown">
+              <div class="ms-search"><input type="text" id="ms-patUnidade-search-input" placeholder="🔍 Buscar unidade…" oninput="patFilterOptions('patUnidade',this.value)"></div>
+              <div class="ms-actions">
+                <button onclick="patSelectAll('patUnidade')">Selecionar todas</button>
+                <button onclick="patClearAll('patUnidade')">Limpar</button>
+              </div>
+              <div class="ms-options" id="ms-patUnidade-options"></div>
+            </div>
+          </div>
+
+          <div class="ms-wrapper" id="ms-patCategoria-wrap">
+            <div class="ms-trigger" id="ms-patCategoria-trigger" onclick="patToggleDropdown('patCategoria')">
+              <span>🏷️</span>
+              <span id="ms-patCategoria-label">Categoria</span>
+              <span class="ms-badge" id="ms-patCategoria-badge" style="display:none"></span>
+              <span class="icon">▾</span>
+            </div>
+            <div class="ms-dropdown" id="ms-patCategoria-dropdown">
+              <div class="ms-search"><input type="text" id="ms-patCategoria-search-input" placeholder="🔍 Buscar categoria…" oninput="patFilterOptions('patCategoria',this.value)"></div>
+              <div class="ms-actions">
+                <button onclick="patSelectAll('patCategoria')">Selecionar todas</button>
+                <button onclick="patClearAll('patCategoria')">Limpar</button>
+              </div>
+              <div class="ms-options" id="ms-patCategoria-options"></div>
+            </div>
+          </div>
+
+          <div class="ms-wrapper" id="ms-patEquipamento-wrap">
+            <div class="ms-trigger" id="ms-patEquipamento-trigger" onclick="patToggleDropdown('patEquipamento')">
+              <span>🩺</span>
+              <span id="ms-patEquipamento-label">Equipamento</span>
+              <span class="ms-badge" id="ms-patEquipamento-badge" style="display:none"></span>
+              <span class="icon">▾</span>
+            </div>
+            <div class="ms-dropdown" id="ms-patEquipamento-dropdown">
+              <div class="ms-search"><input type="text" id="ms-patEquipamento-search-input" placeholder="🔍 Buscar equipamento…" oninput="patFilterOptions('patEquipamento',this.value)"></div>
+              <div class="ms-actions">
+                <button onclick="patSelectAll('patEquipamento')">Selecionar todos</button>
+                <button onclick="patClearAll('patEquipamento')">Limpar</button>
+              </div>
+              <div class="ms-options" id="ms-patEquipamento-options"></div>
+            </div>
+          </div>
+
+          <div class="ms-wrapper" id="ms-patRegiao-wrap">
+            <div class="ms-trigger" id="ms-patRegiao-trigger" onclick="patToggleDropdown('patRegiao')">
+              <span>📍</span>
+              <span id="ms-patRegiao-label">Região</span>
+              <span class="ms-badge" id="ms-patRegiao-badge" style="display:none"></span>
+              <span class="icon">▾</span>
+            </div>
+            <div class="ms-dropdown" id="ms-patRegiao-dropdown">
+              <div class="ms-search"><input type="text" id="ms-patRegiao-search-input" placeholder="🔍 Buscar região…" oninput="patFilterOptions('patRegiao',this.value)"></div>
+              <div class="ms-actions">
+                <button onclick="patSelectAll('patRegiao')">Selecionar todas</button>
+                <button onclick="patClearAll('patRegiao')">Limpar</button>
+              </div>
+              <div class="ms-options" id="ms-patRegiao-options"></div>
+            </div>
+          </div>
+
+          <div class="pat-date-range">
+            <label for="pat-date-from">Instalação</label>
+            <input type="date" id="pat-date-from" onchange="patSetDateRange()">
+            <span class="sep">até</span>
+            <input type="date" id="pat-date-to" onchange="patSetDateRange()">
+          </div>
+        </div>
+
+        <div class="client-summary-grid" id="pat-kpi-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:1rem"></div>
+
+        <div class="client-section-grid">
+          <div class="client-card">
+            <div class="client-card-title"><h4>Equipamentos por Categoria</h4><span>Top 10</span></div>
+            <div id="pat-breakdown-categoria"></div>
+          </div>
+          <div class="client-card">
+            <div class="client-card-title"><h4>Equipamentos por Região</h4><span>Top 10</span></div>
+            <div id="pat-breakdown-regiao"></div>
+          </div>
+        </div>
+
+        <div class="client-card" style="margin-top:1rem">
+          <div class="client-card-title">
+            <h4>Equipamentos filtrados</h4>
+            <span id="pat-table-count"></span>
+          </div>
+          <div style="overflow:auto;max-height:420px">
+            <table class="client-detail-table" id="pat-table">
+              <thead>
+                <tr>
+                  <th>Cliente</th><th>Unidade</th><th>Categoria</th><th>Equipamento</th>
+                  <th>Serial</th><th>Região</th><th>Instalação</th><th>Próx. Manutenção</th><th class="num">Locação R$</th>
+                </tr>
+              </thead>
+              <tbody id="pat-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ══════════════════════════════════════════════════════
    GLOBAL STATE
@@ -1623,6 +1822,26 @@ let charts   = {};   // Chart.js instances
 let filters  = { empresa: new Set(), ano: new Set(), mes: new Set(), cliente: new Set(), categoria: new Set() };
 let allValues = { empresa: [], ano: [], mes: [], cliente: [], categoria: [] };
 let resultFilter = 'all'; // 'all' | 'pos' | 'neg' — filtra pelo sinal do Resultado Ajustado
+
+/* ── Patrimônio Aferido (modal independente, aba "Patrimônio aferido") ──
+   Estado isolado do restante do dashboard: filtros, opções e seleção
+   próprios (prefixo "pat"), para não interferir nos filtros principais
+   (Empresa/Ano/Mês/Cliente/Categoria de Despesas) nem no layout existente. */
+let patrimonioRaw = [];        // linhas normalizadas da aba "Patrimônio aferido"
+let patrimonioSheetFound = false;
+// Contagem de equipamentos por CLIENTE (chave normalizada via norm() — a
+// mesma usada em rawData/r.cliente), usada para exibir a coluna
+// "Equipamentos" na listagem principal (tabela, PDF e planilha), ao lado
+// da coluna Lucratividade. Não interfere em nenhum outro cálculo/tela.
+let patrimonioCountByClient = {};
+// Categorias que não representam equipamento aferido de fato (acessórios) —
+// permanecem sempre fora do universo do modal, inclusive das opções do filtro.
+const PAT_EXCLUDED_CATEGORIAS = new Set(['AUXILIAR', 'PERIFERICO']); // comparado após norm()
+let patFilters   = { patCliente: new Set(), patUnidade: new Set(), patCategoria: new Set(), patEquipamento: new Set(), patRegiao: new Set() };
+let patAllValues = { patCliente: [], patUnidade: [], patCategoria: [], patEquipamento: [], patRegiao: [] };
+let patSearchQueries = { patCliente: '', patUnidade: '', patCategoria: '', patEquipamento: '', patRegiao: '' };
+let patDateFrom = null; // Date | null — filtro "Instalação" (de)
+let patDateTo   = null; // Date | null — filtro "Instalação" (até)
 /* Recalcula o campo "resultado" de cada linha do dataset mestre.
    Como toda a cadeia (KPIs, gráficos, ranking, tabela e exportações) lê
    sempre "resultado" a partir de rawData/getFiltered(), um único recálculo
@@ -2044,6 +2263,10 @@ function handleFile(file) {
       updateImportOverlay('Extraindo Despesas…');
       setStatus('Extraindo Despesas…', 60);
       despesasRaw = processDespesas(wb);
+      updateImportOverlay('Extraindo Patrimônio Aferido…');
+      setStatus('Extraindo Patrimônio Aferido…', 68);
+      patrimonioRaw = processPatrimonio(wb);
+      patrimonioCountByClient = buildPatrimonioCountByClient(patrimonioRaw);
       updateImportOverlay('Calculando resultados…');
       setStatus('Calculando resultados…', 75);
       rawData = data;
@@ -2059,6 +2282,7 @@ function handleFile(file) {
       updateImportOverlay(`${rawData.length} registros carregados…`);
       setStatus(`✅ ${rawData.length} registros carregados | Faturamento-Base: R$ ${totalFat.toLocaleString('pt-BR',{minimumFractionDigits:2})}`, 90);
       buildFilterOptions();
+      buildPatrimonioFilterOptions();
       setTimeout(() => {
         setStatus('Pronto!', 100);
         setTimeout(() => { hideDashboardRecalc(); showDashboard(); }, 300);
@@ -2495,6 +2719,70 @@ function processDespesas(wb) {
   return rows;
 }
 
+/* Lê a aba "Patrimônio aferido" (REGIÃO, CATEGORIA, INSTALAÇÃO, UNIDADE,
+   EQUIPAMENTO, SERIAL, CD PAT, SETOR, TEC, CLIENTE, PREV. ATUAL, PROX.,
+   LOCAÇÃO R$ etc.) e devolve as linhas normalizadas usadas exclusivamente
+   pelo modal "Métricas de Patrimônio" — não interfere em nenhum outro
+   cálculo do dashboard. Aceita pequenas variações de grafia no nome da
+   aba (acentuação/capitalização). Se a aba não existir na planilha
+   carregada, devolve um array vazio (o modal exibe um aviso, sem quebrar
+   o restante da aplicação). Categorias em PAT_EXCLUDED_CATEGORIAS (itens
+   auxiliares, não são equipamento aferido de fato) são descartadas aqui,
+   na origem, para nunca aparecerem nem nos filtros nem nas métricas. */
+function processPatrimonio(wb) {
+  const sheetName = ['Patrimônio aferido', 'Patrimônio Aferido', 'Patrimonio aferido', 'Patrimonio Aferido']
+    .find(n => wb.Sheets[n]);
+  if (!sheetName) return [];
+  return readSheet(wb, sheetName)
+    .map(r => {
+      const categoriaRaw = fk(r, 'CATEGORIA');
+      const clienteRaw   = fk(r, 'CLIENTE');
+      const unidadeRaw   = fk(r, 'UNIDADE');
+      return {
+        regiao:      (fk(r, 'REGIÃO', 'REGIAO') || '').toString().trim(),
+        categoria:   categoriaRaw ? String(categoriaRaw).trim() : '',
+        instalacao:  toDate(fk(r, 'INSTALAÇÃO', 'INSTALACAO')),
+        unidade:     unidadeRaw ? String(unidadeRaw).trim() : '',
+        equipamento: (fk(r, 'EQUIPAMENTO') || '').toString().trim(),
+        serial:      fk(r, 'SERIAL') != null ? String(fk(r, 'SERIAL')).trim() : '',
+        cdPat:       fk(r, 'CD PAT'),
+        setor:       fk(r, 'SETOR') != null ? String(fk(r, 'SETOR')).trim() : '',
+        tec:         fk(r, 'TEC') != null ? String(fk(r, 'TEC')).trim() : '',
+        cliente:     clienteRaw ? String(clienteRaw).trim() : '',
+        prevAtual:   toDate(fk(r, 'PREV. ATUAL', 'PREV ATUAL')),
+        prox:        toDate(fk(r, 'PRÓX.', 'PROX.', 'PRÓX', 'PROX')),
+        locacao:     toNum(fk(r, 'LOCAÇÃO R$', 'LOCACAO R$', 'LOCAÇÃO', 'LOCACAO')),
+      };
+    })
+    .filter(r => r.categoria && !PAT_EXCLUDED_CATEGORIAS.has(norm(r.categoria)))
+    .filter(r => r.cliente || r.unidade);
+}
+
+/* Monta o mapa "quantidade de equipamentos por cliente" a partir das
+   linhas da aba "Patrimônio aferido", usando norm(r.cliente) como chave —
+   a MESMA normalização (maiúsculas, sem acento, sem sufixo societário)
+   aplicada ao CLIENTE das demais abas (Faturamento/Receitas/Inadimplência/
+   Vendas/Aluguéis), garantindo que o total bata com o cliente exibido no
+   ranking principal mesmo quando a grafia varia entre abas. Cada linha da
+   aba de Patrimônio representa um equipamento, então a contagem é simples. */
+function buildPatrimonioCountByClient(rows) {
+  const map = {};
+  (rows || []).forEach(r => {
+    const k = norm(r.cliente);
+    if (!k) return;
+    map[k] = (map[k] || 0) + 1;
+  });
+  return map;
+}
+
+/* Chave de agrupamento do filtro combinado "Cliente/Unidade" — uma linha
+   por combinação distinta de Cliente + Unidade (um mesmo cliente pode ter
+   várias unidades/instalações aferidas). */
+function patClienteUnidadeKey(r) {
+  if (r.cliente && r.unidade) return `${r.cliente} — ${r.unidade}`;
+  return r.cliente || r.unidade || '(Sem identificação)';
+}
+
 /* ══════════════════════════════════════════════════════
    FILTER OPTIONS BUILD
 ══════════════════════════════════════════════════════ */
@@ -2828,6 +3116,359 @@ function clearAllFilters() {
   });
 }
 
+/* ══════════════════════════════════════════════════════
+   MODAL: MÉTRICAS DE PATRIMÔNIO AFERIDO
+   (estado, filtros e renderização totalmente independentes do restante
+   do dashboard — não lê nem escreve em `filters`/`allValues`/`rawData`)
+══════════════════════════════════════════════════════ */
+function buildPatrimonioFilterOptions() {
+  patrimonioSheetFound = patrimonioRaw.length > 0;
+  const emptyEl = document.getElementById('pat-empty-state');
+  const innerEl = document.getElementById('pat-modal-inner');
+  if (emptyEl) emptyEl.style.display = patrimonioSheetFound ? 'none' : 'block';
+  if (innerEl) innerEl.style.display = patrimonioSheetFound ? 'block' : 'none';
+  if (!patrimonioSheetFound) return;
+
+  patAllValues.patCliente    = [...new Set(patrimonioRaw.map(r => r.cliente))].filter(Boolean).sort();
+  patAllValues.patUnidade    = [...new Set(patrimonioRaw.map(r => r.unidade))].filter(Boolean).sort();
+  patAllValues.patCategoria  = [...new Set(patrimonioRaw.map(r => r.categoria))].filter(Boolean).sort();
+  patAllValues.patEquipamento= [...new Set(patrimonioRaw.map(r => r.equipamento))].filter(Boolean).sort();
+  patAllValues.patRegiao     = [...new Set(patrimonioRaw.map(r => r.regiao))].filter(Boolean).sort();
+
+  patFilters.patCliente     = new Set(patAllValues.patCliente);
+  patFilters.patUnidade     = new Set(patAllValues.patUnidade);
+  patFilters.patCategoria   = new Set(patAllValues.patCategoria);
+  patFilters.patEquipamento = new Set(patAllValues.patEquipamento);
+  patFilters.patRegiao      = new Set(patAllValues.patRegiao);
+
+  patSearchQueries = { patCliente: '', patUnidade: '', patCategoria: '', patEquipamento: '', patRegiao: '' };
+  patDateFrom = null; patDateTo = null;
+  const fromEl = document.getElementById('pat-date-from');
+  const toEl   = document.getElementById('pat-date-to');
+  if (fromEl) fromEl.value = '';
+  if (toEl)   toEl.value = '';
+
+  ['patCliente', 'patUnidade', 'patCategoria', 'patEquipamento', 'patRegiao'].forEach(id => patBuildOptions(id));
+}
+
+function patCountFor(id, val) {
+  return patrimonioRaw.filter(r => {
+    if (id === 'patCliente')     return r.cliente === val;
+    if (id === 'patUnidade')     return r.unidade === val;
+    if (id === 'patCategoria')   return r.categoria === val;
+    if (id === 'patEquipamento') return r.equipamento === val;
+    if (id === 'patRegiao')      return r.regiao === val;
+    return false;
+  }).length;
+}
+
+function patBuildOptions(id) {
+  const container = document.getElementById(`ms-${id}-options`);
+  if (!container) return;
+  const q = (patSearchQueries[id] || '').toLowerCase();
+  const values = patAllValues[id].filter(v => !q || String(v).toLowerCase().includes(q));
+  container.innerHTML = '';
+  // Construído via DOM (não via onchange="…" interpolado em string) para
+  // que valores com aspas/apóstrofo (ex.: "Rede D'Or") nunca quebrem o
+  // atributo/JS gerado — o valor real fica preso ao closure do listener,
+  // sem qualquer necessidade de escaping.
+  values.forEach(val => {
+    const isChecked = patFilters[id].has(val);
+    const count = patCountFor(id, val);
+    const div = document.createElement('div');
+    div.className = 'ms-option';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = isChecked;
+    checkbox.addEventListener('change', () => patToggleFilter(id, val, checkbox.checked));
+    const label = document.createElement('span');
+    label.className = 'opt-label';
+    label.textContent = val;
+    const countEl = document.createElement('span');
+    countEl.className = 'opt-count';
+    countEl.textContent = String(count);
+    div.appendChild(checkbox);
+    div.appendChild(label);
+    div.appendChild(countEl);
+    container.appendChild(div);
+  });
+  patUpdateFilterLabel(id);
+}
+
+function patUpdateFilterLabel(id) {
+  const total = patAllValues[id].length;
+  const sel = patFilters[id].size;
+  const label = document.getElementById(`ms-${id}-label`);
+  const badge = document.getElementById(`ms-${id}-badge`);
+  if (!label || !badge) return;
+  const names = { patCliente: 'Cliente', patUnidade: 'Unidade', patCategoria: 'Categoria', patEquipamento: 'Equipamento', patRegiao: 'Região' };
+  if (sel === 0) {
+    label.textContent = `Nenhum(a) — ${names[id]}`;
+    badge.style.display = 'none';
+  } else if (sel >= total) {
+    label.textContent = `${names[id]} (todas)`;
+    badge.style.display = 'none';
+  } else {
+    label.textContent = `${names[id]} (${sel}/${total})`;
+    badge.textContent = sel;
+    badge.style.display = '';
+  }
+}
+
+function patToggleDropdown(id) {
+  ['patCliente', 'patUnidade', 'patCategoria', 'patEquipamento', 'patRegiao'].forEach(k => {
+    const dd = document.getElementById(`ms-${k}-dropdown`);
+    const tr = document.getElementById(`ms-${k}-trigger`);
+    if (!dd || !tr) return;
+    if (k === id) { dd.classList.toggle('open'); tr.classList.toggle('open'); }
+    else { dd.classList.remove('open'); tr.classList.remove('open'); }
+  });
+}
+
+/* Regra de UX idêntica à já usada no filtro principal de Cliente do
+   dashboard (ver REQ-BUG-CLIENTE, refreshClienteOptions):
+   • Com a caixa de busca VAZIA, o comportamento é o multi-select clássico
+     — "todos" segue "todos".
+   • Assim que o usuário digita algo, entramos em "modo busca": só os
+     itens visíveis (que casam com o texto) podem estar marcados. Se
+     antes de buscar "todos" estavam selecionados, a seleção é zerada
+     para que o próximo clique do usuário marque exatamente o(s) item(ns)
+     encontrado(s) — e só ele(s) — em vez de continuar filtrando por
+     "todos os itens" (que é o universo anterior, ainda intacto por trás
+     da busca). Sem isto, marcar um único resultado de busca não tinha
+     nenhum efeito no dashboard, pois os demais 100+ itens continuavam
+     selecionados por trás da busca. */
+function patFilterOptions(id, query) {
+  const prevQuery = patSearchQueries[id] || '';
+  const newQuery  = query || '';
+  patSearchQueries[id] = newQuery;
+
+  const wasSearching = prevQuery.trim() !== '';
+  const isSearching  = newQuery.trim() !== '';
+  const values = patAllValues[id] || [];
+
+  if (isSearching) {
+    const q = newQuery.toLowerCase().trim();
+    const visibleSet = new Set(values.filter(v => String(v).toLowerCase().includes(q)));
+    const hadAllSelected = !wasSearching && patFilters[id].size >= values.length;
+    if (hadAllSelected) {
+      // Vindo de "todos selecionados": zera para o usuário marcar
+      // manualmente apenas o(s) item(ns) encontrado(s) na busca.
+      patFilters[id] = new Set();
+    } else {
+      // Mantém somente as marcações que continuam visíveis na busca
+      // atual (não deixa nada "vazar" de fora do texto pesquisado).
+      patFilters[id] = new Set([...patFilters[id]].filter(v => visibleSet.has(v)));
+    }
+  } else if (wasSearching && !isSearching && patFilters[id].size === 0) {
+    // Busca foi limpa e nada ficou marcado: restaura o universo completo
+    // (padrão intuitivo de "sem busca ativa" = "todos selecionados").
+    patFilters[id] = new Set(values);
+  }
+
+  patUpdateFilterLabel(id);
+  if (id === 'patCliente') patRefreshUnidadeOptions();
+  patBuildOptions(id);
+  renderPatrimonioModal();
+}
+
+/* Cascata Cliente → Unidade: sempre que a seleção de Cliente muda, o
+   universo de Unidades disponíveis é recalculado para conter apenas as
+   unidades pertencentes aos clientes atualmente selecionados (linhas sem
+   cliente identificado permanecem sempre disponíveis, pois não podem ser
+   atribuídas a nenhum cliente). Preserva o padrão intuitivo: se "todas as
+   unidades" estavam marcadas, a nova lista completa também fica marcada;
+   se havia uma seleção parcial, mantém apenas o que continua disponível. */
+function patRefreshUnidadeOptions() {
+  const selectedClients = patFilters.patCliente;
+  const availUnits = [...new Set(
+    patrimonioRaw
+      .filter(r => !r.cliente || selectedClients.has(r.cliente))
+      .map(r => r.unidade)
+  )].filter(Boolean).sort();
+
+  const hadAllSelected =
+    patAllValues.patUnidade.length === 0 ||
+    patAllValues.patUnidade.every(u => patFilters.patUnidade.has(u));
+
+  patAllValues.patUnidade = availUnits;
+
+  if (hadAllSelected) {
+    patFilters.patUnidade = new Set(availUnits);
+  } else {
+    for (const u of [...patFilters.patUnidade]) {
+      if (!availUnits.includes(u)) patFilters.patUnidade.delete(u);
+    }
+    if (patFilters.patUnidade.size === 0 && availUnits.length > 0) {
+      patFilters.patUnidade = new Set(availUnits);
+    }
+  }
+  patBuildOptions('patUnidade');
+}
+
+function patToggleFilter(id, val, checked) {
+  if (checked) patFilters[id].add(val); else patFilters[id].delete(val);
+  patUpdateFilterLabel(id);
+  if (id === 'patCliente') patRefreshUnidadeOptions();
+  renderPatrimonioModal();
+}
+
+function patSelectAll(id) {
+  const q = (patSearchQueries[id] || '').toLowerCase();
+  const visible = patAllValues[id].filter(v => !q || String(v).toLowerCase().includes(q));
+  visible.forEach(v => patFilters[id].add(v));
+  patBuildOptions(id);
+  if (id === 'patCliente') patRefreshUnidadeOptions();
+  renderPatrimonioModal();
+}
+
+function patClearAll(id) {
+  const q = (patSearchQueries[id] || '').toLowerCase();
+  if (q) {
+    const visible = new Set(patAllValues[id].filter(v => String(v).toLowerCase().includes(q)));
+    patFilters[id] = new Set([...patFilters[id]].filter(v => !visible.has(v)));
+  } else {
+    patFilters[id] = new Set();
+  }
+  // Ao clicar em "Limpar", também zeramos a caixa de busca (texto digitado
+  // pelo usuário) e o estado interno da query — sem isto, o texto
+  // permanecia visível no campo mesmo com as seleções já desmarcadas,
+  // e a busca continuava filtrando silenciosamente as opções exibidas.
+  patSearchQueries[id] = '';
+  const searchInput = document.getElementById(`ms-${id}-search-input`);
+  if (searchInput) searchInput.value = '';
+  patBuildOptions(id);
+  if (id === 'patCliente') patRefreshUnidadeOptions();
+  renderPatrimonioModal();
+}
+
+function patClearAllFilters() {
+  if (!patrimonioSheetFound) return;
+  patSearchQueries = { patCliente: '', patUnidade: '', patCategoria: '', patEquipamento: '', patRegiao: '' };
+  ['patCliente', 'patUnidade', 'patCategoria', 'patEquipamento', 'patRegiao'].forEach(id => {
+    const searchInput = document.getElementById(`ms-${id}-search-input`);
+    if (searchInput) searchInput.value = '';
+  });
+  patFilters.patCliente     = new Set(patAllValues.patCliente);
+  patFilters.patCategoria   = new Set(patAllValues.patCategoria);
+  patFilters.patEquipamento = new Set(patAllValues.patEquipamento);
+  patFilters.patRegiao      = new Set(patAllValues.patRegiao);
+  patDateFrom = null; patDateTo = null;
+  document.getElementById('pat-date-from').value = '';
+  document.getElementById('pat-date-to').value = '';
+  ['patCliente', 'patCategoria', 'patEquipamento', 'patRegiao'].forEach(id => patBuildOptions(id));
+  // Unidade é recalculada por último, pois depende do universo de Clientes
+  // recém-restaurado (todos selecionados) — resultado: todas as unidades.
+  patAllValues.patUnidade = [];
+  patFilters.patUnidade = new Set();
+  patRefreshUnidadeOptions();
+  renderPatrimonioModal();
+}
+
+function patSetDateRange() {
+  const fromVal = document.getElementById('pat-date-from').value;
+  const toVal   = document.getElementById('pat-date-to').value;
+  patDateFrom = fromVal ? new Date(fromVal + 'T00:00:00Z') : null;
+  patDateTo   = toVal   ? new Date(toVal + 'T23:59:59Z')   : null;
+  renderPatrimonioModal();
+}
+
+function getFilteredPatrimonio() {
+  return patrimonioRaw.filter(r => {
+    // Linhas sem Cliente/Unidade identificado(a) não podem ser atribuídas
+    // a um valor específico do respectivo filtro, então não são excluídas
+    // por ele (permanecem visíveis independentemente da seleção).
+    if (r.cliente && !patFilters.patCliente.has(r.cliente)) return false;
+    if (r.unidade && !patFilters.patUnidade.has(r.unidade)) return false;
+    if (!patFilters.patCategoria.has(r.categoria)) return false;
+    if (!patFilters.patEquipamento.has(r.equipamento)) return false;
+    if (!patFilters.patRegiao.has(r.regiao)) return false;
+    if (patDateFrom && (!r.instalacao || r.instalacao < patDateFrom)) return false;
+    if (patDateTo   && (!r.instalacao || r.instalacao > patDateTo))   return false;
+    return true;
+  });
+}
+
+function patBuildBreakdown(rows, field) {
+  const map = {};
+  rows.forEach(r => { const k = r[field] || '—'; map[k] = (map[k] || 0) + 1; });
+  const entries = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  if (!entries.length) return `<div style="color:var(--muted);font-size:.82rem">Sem dados no filtro atual.</div>`;
+  const max = entries[0][1];
+  return entries.map(([label, count]) => `
+    <div class="pat-bar-row">
+      <span class="pat-bar-label" title="${escapeHtml(label)}">${escapeHtml(label)}</span>
+      <span class="pat-bar-track"><span class="pat-bar-fill" style="width:${(count / max * 100).toFixed(1)}%"></span></span>
+      <span class="pat-bar-value">${count}</span>
+    </div>`).join('');
+}
+
+function renderPatrimonioModal() {
+  if (!patrimonioSheetFound) return;
+  const rows = getFilteredPatrimonio();
+
+  const totalEquip = rows.length;
+  const clientesUnidades = new Set(rows.map(patClienteUnidadeKey)).size;
+  const categoriasDistintas = new Set(rows.map(r => r.categoria)).size;
+  const totalLocacao = rows.reduce((s, r) => s + (r.locacao || 0), 0);
+
+  const kpiGrid = document.getElementById('pat-kpi-grid');
+  if (kpiGrid) {
+    kpiGrid.innerHTML = `
+      <div class="client-kpi"><div class="client-kpi-label">Equipamentos</div><div class="client-kpi-value">${totalEquip.toLocaleString('pt-BR')}</div></div>
+      <div class="client-kpi"><div class="client-kpi-label">Clientes/Unidades</div><div class="client-kpi-value">${clientesUnidades.toLocaleString('pt-BR')}</div></div>
+      <div class="client-kpi"><div class="client-kpi-label">Categorias</div><div class="client-kpi-value">${categoriasDistintas.toLocaleString('pt-BR')}</div></div>
+      <div class="client-kpi"><div class="client-kpi-label">Total Locação</div><div class="client-kpi-value">${fmtR(totalLocacao)}</div></div>
+    `;
+  }
+  const metaEl = document.getElementById('pat-modal-meta');
+  if (metaEl) metaEl.textContent = `${totalEquip.toLocaleString('pt-BR')} equipamento(s) no filtro atual`;
+
+  const catEl = document.getElementById('pat-breakdown-categoria');
+  if (catEl) catEl.innerHTML = patBuildBreakdown(rows, 'categoria');
+  const regEl = document.getElementById('pat-breakdown-regiao');
+  if (regEl) regEl.innerHTML = patBuildBreakdown(rows, 'regiao');
+
+  const tbody = document.getElementById('pat-table-body');
+  if (tbody) {
+    const MAX_ROWS = 500;
+    const sorted = [...rows].sort((a, b) =>
+      (a.cliente || '').localeCompare(b.cliente || '') || (a.unidade || '').localeCompare(b.unidade || ''));
+    tbody.innerHTML = sorted.slice(0, MAX_ROWS).map(r => `
+      <tr>
+        <td>${escapeHtml(r.cliente)}</td>
+        <td>${escapeHtml(r.unidade)}</td>
+        <td>${escapeHtml(r.categoria)}</td>
+        <td>${escapeHtml(r.equipamento)}</td>
+        <td>${escapeHtml(r.serial)}</td>
+        <td>${escapeHtml(r.regiao)}</td>
+        <td>${r.instalacao ? r.instalacao.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
+        <td>${r.prox instanceof Date ? r.prox.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
+        <td class="num">${r.locacao ? fmtR(r.locacao) : '—'}</td>
+      </tr>`).join('');
+    const countEl = document.getElementById('pat-table-count');
+    if (countEl) {
+      countEl.textContent = sorted.length > MAX_ROWS
+        ? `${sorted.length.toLocaleString('pt-BR')} registros (exibindo os primeiros ${MAX_ROWS})`
+        : `${sorted.length.toLocaleString('pt-BR')} registro(s)`;
+    }
+  }
+}
+
+function openPatrimonioModal() {
+  if (!rawData.length) return;
+  renderPatrimonioModal();
+  document.getElementById('patrimonio-modal').classList.add('open');
+}
+
+function closePatrimonioModal() {
+  const modal = document.getElementById('patrimonio-modal');
+  if (!modal) return;
+  modal.classList.remove('open');
+  document.querySelectorAll('#patrimonio-modal .ms-dropdown.open').forEach(d => d.classList.remove('open'));
+  document.querySelectorAll('#patrimonio-modal .ms-trigger.open').forEach(d => d.classList.remove('open'));
+}
+
 function updateFilterLabel(id) {
   const total = allValues[id].length;
   const sel   = filters[id].size;
@@ -2986,8 +3627,11 @@ function showDashboard() {
 function resetDashboard() {
   document.getElementById('upload-screen').style.display = 'flex';
   document.getElementById('dashboard').style.display = 'none';
-  rawData = []; despesasRaw = [];
+  rawData = []; despesasRaw = []; patrimonioRaw = []; patrimonioSheetFound = false;
   filters = { empresa:new Set(), ano:new Set(), mes:new Set(), cliente:new Set(), categoria:new Set() };
+  patFilters = { patCliente: new Set(), patUnidade: new Set(), patCategoria: new Set(), patEquipamento: new Set(), patRegiao: new Set() };
+  patDateFrom = null; patDateTo = null;
+  closePatrimonioModal();
   params.adminTotal = 0; params.adminTotalBase = 0; params.refFat = 0; params.desmarcadasTotal = 0;
   document.getElementById('file-input').value = '';
   document.getElementById('loading-progress').style.width = '0%';
@@ -3471,6 +4115,10 @@ function renderTable(data) {
       mesTitle: periodosArr.map(p => `${MESES[p%100]}/${String(Math.floor(p/100)).slice(-2)}`).join(', '),
       mesSort: periodosArr[periodosArr.length-1] || 0,
       fat:r.fat, rec:r.rec, inad:r.inad, vend:r.vend, alug:r.alug, res:r.res,
+      // Quantidade de equipamentos vinculados a este cliente na aba
+      // "Patrimônio aferido" (independe do cenário de filtros financeiros
+      // aplicado — reflete o total cadastrado para o cliente).
+      equipCount: patrimonioCountByClient[r.clientKey] || 0,
       rank:i+1
     };
   });
@@ -3495,7 +4143,7 @@ function renderTable(data) {
 
 function applyTableSort() {
   const { sort, dir } = tableState;
-  const map = { rank:'rank', empresa:'emp', mes:'mesSort', cliente:'name', faturamento:'fat', receitas:'rec', inadimplencia:'inad', vendas:'vend', alugueis:'alug', resultado:'res', impostos:'impostos', adm:'adm', resAj:'resAj', lucratividade:'lucratividade' };
+  const map = { rank:'rank', empresa:'emp', mes:'mesSort', cliente:'name', faturamento:'fat', receitas:'rec', inadimplencia:'inad', vendas:'vend', alugueis:'alug', resultado:'res', impostos:'impostos', adm:'adm', resAj:'resAj', lucratividade:'lucratividade', equipamentos:'equipCount' };
   const field = map[sort] || 'res';
   tableState.data.sort((a,b) => {
     const av = typeof a[field]==='string'?a[field].toLowerCase():a[field];
@@ -3570,7 +4218,7 @@ function drawTable() {
   const foot = document.getElementById('table-foot');
   body.innerHTML = '';
   if (!page.length) {
-    body.innerHTML = `<tr><td colspan="15"><div class="empty-state"><div class="icon">🔍</div><p>Nenhum cliente encontrado com os filtros atuais.</p></div></td></tr>`;
+    body.innerHTML = `<tr><td colspan="16"><div class="empty-state"><div class="icon">🔍</div><p>Nenhum cliente encontrado com os filtros atuais.</p></div></td></tr>`;
     if (foot) foot.innerHTML = '';
     return;
   }
@@ -3612,6 +4260,7 @@ function drawTable() {
           </div>
         </div>
       </td>
+      <td class="num" style="color:var(--accent2)">${r.equipCount.toLocaleString('pt-BR')}</td>
       <td class="num">${fmtR(r.fat)}</td>
       <td class="num">${fmtR(r.rec)}</td>
       <td class="num" style="color:var(--red)">${fmtR(r.inad)}</td>
@@ -3635,7 +4284,7 @@ function drawTable() {
    Soma todas as colunas numéricas considerando TODOS os registros do
    cenário filtrado/buscado (rows), não apenas a página atual — assim o
    totalizador reflete o total real, independente da paginação.
-   Adm (rateio) somado aqui bate com o total de despesas administrativas
+   Custo Adm. (rateio) somado aqui bate com o total de despesas administrativas
    do cenário, pois cada linha já recebeu sua fração proporcional ao
    faturamento (ver adjRow/effectiveAdminTotal). */
 function renderTableTotals(rows) {
@@ -3654,11 +4303,13 @@ function renderTableTotals(rows) {
   const tAdm  = sum(r=>r.adm);
   const tResAj= sum(r=>r.resAj);
   const tLuc  = tFat > 0 ? tResAj / tFat : 0;
+  const tEquip = sum(r=>r.equipCount || 0);
 
   foot.innerHTML = `
     <tr class="totals-row">
       <td class="totals-label" colspan="5">Total geral · ${rows.length} registro${rows.length===1?'':'s'}</td>
       <td class="num">${fmtPct(tLuc)}</td>
+      <td class="num" style="color:var(--accent2)">${tEquip.toLocaleString('pt-BR')}</td>
       <td class="num">${fmtR(tFat)}</td>
       <td class="num">${fmtR(tRec)}</td>
       <td class="num" style="color:var(--red)">${fmtR(tInad)}</td>
@@ -3680,6 +4331,77 @@ function slugify(value) {
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-+|-+$/g,'')
     .toLowerCase() || 'cliente';
+}
+
+/* ══════════════════════════════════════════════════════
+   IMPRESSÃO / EXPORTAÇÃO DE PDF — mecanismo único e confiável
+   ──────────────────────────────────────────────────────
+   Cada relatório (Lucratividade geral, Cliente individual e
+   Patrimônio Aferido) é montado como um documento HTML 100%
+   autossuficiente — HTML + CSS embutidos, sem qualquer
+   referência ao DOM da tela — para que a estrutura impressa
+   nunca fique "colada" ao layout do dashboard.
+
+   Esse documento é escrito dentro de um <iframe> oculto (em
+   vez de uma nova aba via window.open). Isso resolve dois
+   problemas do padrão anterior:
+   1) O evento "load" de uma aba aberta em branco e depois
+      preenchida via document.write() não dispara de forma
+      confiável em navegadores modernos (a aba já está
+      "completa" antes do documento real ser escrito), então
+      o window.print() automático às vezes nunca chegava a
+      ser chamado — resultando em páginas em branco ou no
+      documento errado ao tentar salvar/baixar o PDF.
+   2) Uma nova aba pode ser bloqueada por bloqueadores de
+      pop-up. O iframe oculto não abre aba nenhuma.
+   O "load" do iframe dispara de forma consistente, então o
+   print() é chamado no momento certo, sempre com o documento
+   já totalmente renderizado e independente da tela.
+══════════════════════════════════════════════════════ */
+function printReportDocument(html, reportTitle) {
+  const existing = document.getElementById('__report-print-frame');
+  if (existing) existing.remove();
+
+  const iframe = document.createElement('iframe');
+  iframe.id = '__report-print-frame';
+  iframe.setAttribute('aria-hidden', 'true');
+  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+  document.body.appendChild(iframe);
+
+  const originalTitle = document.title;
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    document.title = originalTitle;
+    if (iframe.parentNode) setTimeout(() => iframe.remove(), 300);
+  };
+
+  const triggerPrint = () => {
+    try {
+      // O nome sugerido no diálogo "Salvar como PDF" é herdado do título
+      // da aba — trocamos temporariamente para o nome do relatório.
+      document.title = reportTitle;
+      const frameWin = iframe.contentWindow;
+      frameWin.addEventListener('afterprint', cleanup, { once: true });
+      frameWin.focus();
+      frameWin.print();
+      // Em navegadores onde "afterprint" não é confiável (ou o diálogo é
+      // cancelado sem disparar o evento), garante a restauração do título
+      // e a remoção do iframe mesmo assim.
+      setTimeout(cleanup, 2000);
+    } catch (e) {
+      console.error('Falha ao preparar a impressão do relatório:', e);
+      cleanup();
+      alert('Não foi possível gerar o PDF. Tente novamente ou desative bloqueadores de pop-up/impressão do navegador.');
+    }
+  };
+
+  iframe.addEventListener('load', triggerPrint, { once: true });
+  const doc = iframe.contentDocument;
+  doc.open();
+  doc.write(html);
+  doc.close();
 }
 function getScenarioSummary() {
   const categorias = filters.categoria.size === allValues.categoria.length
@@ -3852,6 +4574,11 @@ function buildClientDetail(clientKey, emp) {
     periodCount,
     empresaSummary,
     totals,
+    // Quantidade de equipamentos vinculados a este cliente (aba
+    // "Patrimônio aferido") — mesmo valor exibido na coluna
+    // "Equipamentos" da listagem principal, repetido em cada linha da
+    // tabela de composição mensal do modal (não varia por período).
+    equipCount: patrimonioCountByClient[clientKey] || 0,
     participation,
     margin,
     adjMargin,
@@ -3869,6 +4596,58 @@ function buildClientDetail(clientKey, emp) {
     filters: getScenarioSummary()
   };
 }
+/* ── Equipamentos do cliente, agrupados por categoria (modal de detalhes) ──
+   Lê a aba "Patrimônio aferido" (patrimonioRaw) filtrando pelo mesmo
+   clientKey normalizado usado no ranking principal (norm(r.cliente) ===
+   clientKey — mesma chave já usada por buildPatrimonioCountByClient).
+   Categorias são ordenadas por volume (quantidade de equipamentos)
+   decrescente entre si; dentro de cada categoria, os equipamentos também
+   são ordenados por volume decrescente. Não interfere em nenhum filtro
+   ou estado do modal "Métricas de Patrimônio" (independente). */
+function buildClientEquipmentGroups(clientKey) {
+  const rows = (patrimonioRaw || []).filter(r => norm(r.cliente) === clientKey);
+  const catMap = {};
+  rows.forEach(r => {
+    const categoria = r.categoria || '—';
+    if (!catMap[categoria]) catMap[categoria] = { categoria, total: 0, equipMap: {} };
+    catMap[categoria].total++;
+    const equipamento = r.equipamento || '—';
+    catMap[categoria].equipMap[equipamento] = (catMap[categoria].equipMap[equipamento] || 0) + 1;
+  });
+  return Object.values(catMap)
+    .map(c => ({
+      categoria: c.categoria,
+      total: c.total,
+      equipamentos: Object.entries(c.equipMap)
+        .map(([nome, qtd]) => ({ nome, qtd }))
+        .sort((a, b) => b.qtd - a.qtd || a.nome.localeCompare(b.nome))
+    }))
+    .sort((a, b) => b.total - a.total || a.categoria.localeCompare(b.categoria));
+}
+
+function buildClientEquipmentListHTML(clientKey) {
+  const groups = buildClientEquipmentGroups(clientKey);
+  if (!groups.length) {
+    return `<div style="color:var(--muted);font-size:.82rem">Nenhum equipamento vinculado a este cliente na aba Patrimônio aferido.</div>`;
+  }
+  // Mesma grade de cartões por categoria usada no PDF (equipCards em
+  // buildClientReportHTML) — categorias já vêm ordenadas por volume
+  // (buildClientEquipmentGroups), assim como os equipamentos dentro de
+  // cada uma, garantindo que a tela mostre exatamente o que sai no PDF.
+  const cards = groups.map(g => `
+    <div class="equip-card">
+      <div class="equip-card-title"><span>${escapeHtml(g.categoria)}</span><span>${g.total.toLocaleString('pt-BR')}</span></div>
+      <table class="equip-mini">
+        <colgroup><col><col style="width:56px"></colgroup>
+        <tbody>
+          ${g.equipamentos.map(e => `
+          <tr><td>${escapeHtml(e.nome)}</td><td class="num">${e.qtd.toLocaleString('pt-BR')}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`).join('');
+  return `<div class="equip-grid">${cards}</div>`;
+}
+
 function buildClientOverviewHTML(detail) {
   const summaryClass = v => v >= 0 ? 'good' : 'danger';
   const monthlyRows = detail.monthlyDisplay.map(m => {
@@ -3876,6 +4655,8 @@ function buildClientOverviewHTML(detail) {
     return `
     <tr>
       <td>${m.label}</td>
+      <td class="num"><span class="${luc>=0?'result-pos':'result-neg'}">${fmtPct(luc)}</span></td>
+      <td class="num" style="color:var(--accent2)">${detail.equipCount.toLocaleString('pt-BR')}</td>
       <td class="num">${fmtR(m.fat)}</td>
       <td class="num">${fmtR(m.rec)}</td>
       <td class="num" style="color:var(--red)">${fmtR(m.inad)}</td>
@@ -3885,7 +4666,6 @@ function buildClientOverviewHTML(detail) {
       <td class="num" style="color:var(--red)">${fmtR(m.impostos)}</td>
       <td class="num" style="color:var(--amber)">${fmtR(m.adm)}</td>
       <td class="num"><span class="${m.resAj>=0?'result-pos':'result-neg'}">${fmtR(m.resAj)}</span></td>
-      <td class="num"><span class="${luc>=0?'result-pos':'result-neg'}">${fmtPct(luc)}</span></td>
     </tr>`;
   }).join('');
 
@@ -4004,6 +4784,8 @@ function buildClientOverviewHTML(detail) {
             <thead>
               <tr>
                 <th>Período</th>
+                <th style="text-align:right">Lucratividade</th>
+                <th style="text-align:right" title="Quantidade de equipamentos vinculados ao cliente na aba Patrimônio aferido">Equipamentos</th>
                 <th style="text-align:right">Faturamento</th>
                 <th style="text-align:right">Receitas</th>
                 <th style="text-align:right">Inadimplência</th>
@@ -4013,13 +4795,20 @@ function buildClientOverviewHTML(detail) {
                 <th style="text-align:right">Impostos</th>
                 <th style="text-align:right">Adm</th>
                 <th style="text-align:right">Res. Ajust.</th>
-                <th style="text-align:right">Lucratividade</th>
               </tr>
             </thead>
             <tbody>${monthlyRows}</tbody>
             ${buildClientDetailTotalsFoot(detail)}
           </table>
         </div>
+      </div>
+
+      <div class="client-card">
+        <div class="client-card-title">
+          <h4>Equipamentos do cliente</h4>
+          <span>${detail.equipCount.toLocaleString('pt-BR')} equipamento(s) · categorias por volume</span>
+        </div>
+        ${buildClientEquipmentListHTML(detail.clientKey)}
       </div>
     </div>`;
 }
@@ -4048,6 +4837,8 @@ function buildClientDetailTotalsFoot(detail) {
     <tfoot>
       <tr class="totals-row">
         <td class="totals-label">${label}</td>
+        <td class="num">${fmtPct(tLuc)}</td>
+        <td class="num" style="color:var(--accent2)">${detail.equipCount.toLocaleString('pt-BR')}</td>
         <td class="num">${fmtR(t.fat)}</td>
         <td class="num">${fmtR(t.rec)}</td>
         <td class="num" style="color:var(--red)">${fmtR(t.inad)}</td>
@@ -4057,7 +4848,6 @@ function buildClientDetailTotalsFoot(detail) {
         <td class="num" style="color:var(--red)">${fmtR(t.impostos)}</td>
         <td class="num" style="color:var(--amber)">${fmtR(t.adm)}</td>
         <td class="num"><span class="${t.resAj>=0?'result-pos':'result-neg'}">${fmtR(t.resAj)}</span></td>
-        <td class="num">${fmtPct(tLuc)}</td>
       </tr>
     </tfoot>`;
 }
@@ -4131,12 +4921,49 @@ function buildClientReportHTML(detail) {
 
   const insightsHtml = detail.insights.map(item => `<li><strong>${escapeHtml(item.title)}:</strong> ${escapeHtml(item.text)}</li>`).join('');
 
+  // Equipamentos do cliente (aba "Patrimônio aferido"), agrupados por
+  // categoria e ordenados por volume — mesmo agrupamento exibido na aba
+  // "Visão geral" do modal (buildClientEquipmentGroups), reaproveitado
+  // aqui para que o PDF reflita exatamente a mesma lista.
+  const equipGroups = buildClientEquipmentGroups(detail.clientKey);
+  // Cada categoria vira um "cartão" compacto (título + mini-tabela de
+  // equipamentos), organizados em grade de 2 colunas — melhor
+  // aproveitamento do espaço horizontal da página do que uma única
+  // tabela larga com a coluna "Equipamento" quase vazia. Sem
+  // colspan/rowspan: mais uma camada de segurança contra falhas de
+  // captura do html2canvas/html2pdf (usado para gerar este relatório).
+  const equipCards = equipGroups.map(g => `
+    <div class="equip-card">
+      <div class="equip-card-title"><span>${escapeHtml(g.categoria)}</span><span>${g.total.toLocaleString('pt-BR')}</span></div>
+      <table class="equip-mini">
+        <colgroup><col><col style="width:34px"></colgroup>
+        <tbody>
+          ${g.equipamentos.map(e => `
+          <tr><td>${escapeHtml(e.nome)}</td><td class="r">${e.qtd.toLocaleString('pt-BR')}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`).join('');
+  const equipTotal = equipGroups.reduce((s, g) => s + g.total, 0);
+
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório do Cliente</title>
   <style>
     @page { size: A4 landscape; margin: 8mm; }
     * { box-sizing: border-box; }
     body { margin: 0; padding: 10px; background: #E2E8F0; font-family: 'Segoe UI', Arial, sans-serif; color: #0F172A; }
     .page { width: 100%; max-width: 1180px; margin: 0 auto; background: #FFFFFF; border-radius: 18px; overflow: hidden; box-shadow: 0 18px 60px rgba(15,23,42,.12); }
+    /* No papel/PDF o "cartão" flutuante vira a própria página — sem
+       fundo cinza, sombra ou cantos arredondados ao redor. */
+    @media print {
+      body { background: #FFFFFF; padding: 0; }
+      .page { max-width: 100%; border-radius: 0; box-shadow: none; }
+    }
+    /* Quebra de página inteligente: cabeçalho de tabela repete em cada
+       página, linhas e cartões nunca são cortados ao meio. */
+    table thead { display: table-header-group; }
+    table tfoot { display: table-footer-group; }
+    tr { page-break-inside: avoid; break-inside: avoid; }
+    h1, h2, .hero, .section h2 { page-break-after: avoid; break-after: avoid-page; }
+    .meta, .kpis, .filters { page-break-inside: avoid; break-inside: avoid; }
     .hero { padding: 22px 24px 16px; background: linear-gradient(135deg, #0F172A, #1D4ED8); color: #fff; }
     .hero-top { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; }
     .hero h1 { margin:0; font-size: 24px; line-height:1.1; }
@@ -4165,9 +4992,35 @@ function buildClientReportHTML(detail) {
     tbody tr.even td { background:#F8FAFC; }
     td.r, th.r { text-align:right; font-variant-numeric: tabular-nums; }
     tr.totals-row td { background:#EFF6FF; border-top:2px solid #93C5FD; font-weight:800; }
+    .equip-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin-top: 10px; }
+    .equip-card { border:1px solid #E2E8F0; border-radius: 10px; padding: 7px 10px 4px; break-inside: avoid; page-break-inside: avoid; }
+    .equip-card-title { display:flex; justify-content:space-between; gap:8px; font-weight:800; font-size:10px; color:#0F172A; padding-bottom:4px; margin-bottom:2px; border-bottom:1px solid #E2E8F0; }
+    .equip-mini { width:100%; border-collapse:collapse; table-layout:auto; font-size:9.5px; }
+    .equip-mini td { padding:3px 2px; border-bottom:1px dashed #E2E8F0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .equip-mini tr:last-child td { border-bottom:none; }
+    .equip-mini td.r { text-align:right; color:#334155; font-variant-numeric: tabular-nums; }
     .footer { display:flex; justify-content:space-between; gap:12px; margin-top:16px; padding-top:10px; border-top:1px solid #E2E8F0; font-size:10px; color:#64748B; }
+    /* Cabeçalho corrido: repete no topo de todas as páginas impressas
+       (ver comentário equivalente em exportPDF()). */
+    table.print-shell { width:100%; border-collapse:collapse; }
+    table.print-shell > thead > tr > td,
+    table.print-shell > tbody > tr > td { padding:0; border:none; }
+    .print-running-header {
+      display:flex; justify-content:space-between; align-items:center; gap:12px;
+      font-size:9px; color:#64748B; padding:0 22px 8px; margin-bottom:2px;
+      border-bottom:1px solid #E2E8F0;
+    }
+    .print-running-header strong { color:#0F172A; }
   </style></head><body>
     <div class="page">
+      <table class="print-shell">
+      <thead><tr><td>
+        <div class="print-running-header">
+          <span><strong>${escapeHtml(detail.name)}</strong> — Relatório individual do cliente</span>
+          <span>${escapeHtml(detail.emp)} • Gerado em ${escapeHtml(now)}</span>
+        </div>
+      </td></tr></thead>
+      <tbody><tr><td>
       <div class="hero">
         <div class="hero-top">
           <div>
@@ -4261,11 +5114,19 @@ function buildClientReportHTML(detail) {
           </div>
         </div>
 
+        ${equipGroups.length ? `
+        <div class="section">
+          <h2>Equipamentos do cliente (categorias por volume) — ${equipTotal.toLocaleString('pt-BR')} equipamento(s)</h2>
+          <div class="equip-grid">${equipCards}</div>
+        </div>` : ''}
+
         <div class="footer">
           <span>Grupo Labmedic • Relatório individual do cliente</span>
           <span>Documento preparado para exportação em PDF</span>
         </div>
       </div>
+      </td></tr></tbody>
+      </table>
     </div>
   </body></html>`;
 }
@@ -4370,31 +5231,21 @@ function closeClientModal() {
   document.getElementById('client-modal').classList.remove('open');
   document.body.style.overflow = '';
 }
-async function downloadClientPDF() {
+function downloadClientPDF() {
   if (!clientModalState) return;
   switchClientModalTab('pdf');
-  refreshClientPDFPreview();
 
-  const frame = document.getElementById('client-pdf-frame');
-  const fileName = `Grupo Labmedic_${slugify(clientModalState.name)}_${slugify(clientModalState.emp)}.pdf`;
+  const reportTitle = `Grupo Labmedic_${slugify(clientModalState.name)}_${slugify(clientModalState.emp)}`;
 
-  const run = async () => {
-    const doc = frame.contentDocument || frame.contentWindow?.document;
-    if (window.html2pdf && doc?.body) {
-      await html2pdf().set({
-        margin: [6, 6, 6, 6],
-        filename: fileName,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#E2E8F0' },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      }).from(doc.body).save();
-    } else if (frame.contentWindow) {
-      frame.contentWindow.focus();
-      frame.contentWindow.print();
-    }
-  };
+  // O relatório é construído como documento HTML totalmente independente
+  // da interface de tela (buildClientReportHTML monta tudo a partir dos
+  // dados, sem reaproveitar o DOM do modal) e impresso via
+  // printReportDocument — mecanismo único e confiável usado por todas as
+  // exportações em PDF deste aplicativo (ver comentário acima da função).
+  let reportHTML = buildClientReportHTML(clientModalState);
+  reportHTML = reportHTML.replace('<title>Relatório do Cliente</title>', `<title>${escapeHtml(reportTitle)}</title>`);
 
-  setTimeout(run, 250);
+  printReportDocument(reportHTML, reportTitle);
 }
 
 /* ══════════════════════════════════════════════════════
@@ -4453,7 +5304,7 @@ function exportXLSX() {
 
   // ── Sheet 1: Ranking por Empresa Emissora
   const empRows = [
-    ['#','Empresa','Receitas (R$)','Inadimplência (R$)','Faturamento (R$)','Insumos (R$)','Aluguéis (R$)','Resultado (R$)','Impostos (R$)','Desp. Adm (R$)','Resultado Ajustado (R$)','Lucratividade (%)'],
+    ['#','Empresa','Receitas (R$)','Inadimplência (R$)','Faturamento (R$)','Insumos (R$)','Aluguéis (R$)','Resultado (R$)','Impostos (R$)','Custo Adm. (R$)','Resultado Ajustado (R$)','Lucratividade (%)'],
     ...empresa.map(e=>[e.rank, e.emp, e.rec, e.inad, e.fat, e.vend, e.alug, e.res, e.impostos, e.adm, e.resAj, +(e.lucratividade*100).toFixed(4)]),
     ['TOTAL','',
       empresa.reduce((s,r)=>s+r.rec,0),
@@ -4473,10 +5324,11 @@ function exportXLSX() {
 
   // ── Sheet 2: Ranking por Cliente
   const cliRows = [
-    ['#','Empresa','Cliente','Lucratividade (%)','Faturamento (R$)','Receitas (R$)','Inadimplência (R$)','Insumos (R$)','Aluguéis (R$)','Resultado (R$)','Impostos (R$)','Desp. Adm (R$)','Resultado Ajustado (R$)'],
+    ['#','Empresa','Cliente','Lucratividade (%)','Equipamentos','Faturamento (R$)','Receitas (R$)','Inadimplência (R$)','Insumos (R$)','Aluguéis (R$)','Resultado (R$)','Impostos (R$)','Custo Adm. (R$)','Resultado Ajustado (R$)'],
     ...clientAggFiltered.map((r,i)=>[
       i+1, r.emp, r.name,
       r.fat>0 ? +(r.resAj/r.fat*100).toFixed(4) : 0,
+      patrimonioCountByClient[r.clientKey] || 0,
       r.fat, r.rec, r.inad, r.vend, r.alug, r.res, r.impostos, r.adm, r.resAj
     ])
   ];
@@ -4485,7 +5337,7 @@ function exportXLSX() {
 
   // ── Sheet 3: Tendência Mensal
   const monRows = [
-    ['Ano','Mês','Competência','Faturamento (R$)','Insumos (R$)','Aluguéis (R$)','Resultado (R$)','Impostos (R$)','Desp. Adm (R$)','Resultado Ajustado (R$)'],
+    ['Ano','Mês','Competência','Faturamento (R$)','Insumos (R$)','Aluguéis (R$)','Resultado (R$)','Impostos (R$)','Custo Adm. (R$)','Resultado Ajustado (R$)'],
     ...monthly.map(m=>[m.year, MESES[m.month], m.label, m.fat, m.vend, m.alug, m.res, m.impostos, m.adm, m.resAj])
   ];
   const wsMon = XLSX.utils.aoa_to_sheet(monRows);
@@ -4512,6 +5364,19 @@ function exportXLSX() {
       }
     }
   });
+  // Coluna "Equipamentos" (Ranking por Cliente) é uma contagem inteira —
+  // sobrepõe o formato decimal genérico aplicado acima por esse valor
+  // não representar um montante monetário.
+  {
+    const range = XLSX.utils.decode_range(wsCli['!ref']||'A1');
+    const equipCol = cliRows[0].indexOf('Equipamentos');
+    if (equipCol >= 0) {
+      for (let R=1; R<=range.e.r; R++) {
+        const addr = XLSX.utils.encode_cell({r:R,c:equipCol});
+        if (wsCli[addr] && typeof wsCli[addr].v === 'number') wsCli[addr].z = '#,##0';
+      }
+    }
+  }
 
   // ── Sheet 5: Parâmetros do cenário
   const scenario = getScenarioSummary();
@@ -4535,7 +5400,7 @@ function exportXLSX() {
 }
 
 /* ══════════════════════════════════════════════════════
-   EXPORT — PDF (A4 landscape, via print window)
+   EXPORT — PDF (A4 landscape, via printReportDocument)
 ══════════════════════════════════════════════════════ */
 function exportPDF() {
   const data       = getFiltered();
@@ -4558,6 +5423,11 @@ function exportPDF() {
   const totalAdm   = clientAgg.reduce((s,r)=>s+r.adm,0);
   const totalResAj = clientAgg.reduce((s,r)=>s+r.resAj,0);
   const nClients   = clientAgg.length;
+  // Total de equipamentos do cenário: soma por CLIENTE ÚNICO (evita
+  // contar o mesmo cliente mais de uma vez quando ele aparece dividido em
+  // mais de uma linha/empresa em clientAgg).
+  const totalEquip = [...new Set(clientAgg.map(r=>r.clientKey))]
+    .reduce((s,k)=>s+(patrimonioCountByClient[k] || 0), 0);
   const now        = new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});
   const fileName   = document.getElementById('file-name-display').textContent;
 
@@ -4574,11 +5444,13 @@ function exportPDF() {
     const pct = r.fat>0 ? (r.resAj/r.fat*100).toFixed(2).replace('.',',')+'%' : '0,00%';
     const res = r.res;
     const resColor = res>=0 ? '#059669' : '#DC2626';
+    const equipCount = patrimonioCountByClient[r.clientKey] || 0;
     return `<tr class="${i%2===0?'even':''}">
       <td class="c">${i+1}</td>
       <td class="c"><span class="tag emp-${r.emp.replace(/\s+/g,'-')}">${r.emp}</span></td>
       <td>${r.name}</td>
       <td class="r muted">${pct}</td>
+      <td class="c">${equipCount.toLocaleString('pt-BR')}</td>
       <td class="r">${fmtR(r.fat)}</td>
       <td class="r">${fmtR(r.rec)}</td>
       <td class="r red">${fmtR(r.inad)}</td>
@@ -4671,8 +5543,39 @@ function exportPDF() {
     .footer { border-top:1px solid #E2E8F0; padding-top:6px; margin-top:10px; display:flex; justify-content:space-between; font-size:6.5pt; color:#94A3B8; }
     /* Page break */
     .page-break { page-break-before:always; padding-top:10px; }
+    /* Quebra de página inteligente: cabeçalho de tabela repete em cada
+       página impressa, linhas e blocos nunca são cortados ao meio. */
+    thead { display: table-header-group; }
+    tfoot { display: table-footer-group; }
+    tr { page-break-inside: avoid; break-inside: avoid; }
+    .kpi-row, .filters, .kpi, .header { page-break-inside: avoid; break-inside: avoid; }
+    .section-title { page-break-after: avoid; break-after: avoid-page; }
+    /* Cabeçalho corrido: repete no topo de TODAS as páginas impressas
+       (inclusive a primeira). Funciona porque um <thead> com
+       display:table-header-group é reimpresso pelo motor de impressão
+       do navegador sempre que a tabela quebra em nova página — truque
+       padrão para cabeçalho fixo em documentos HTML impressos, já que
+       não há suporte confiável a "elementos correntes" via @page. */
+    table.print-shell { width:100%; border-collapse:collapse; }
+    table.print-shell > thead > tr > td,
+    table.print-shell > tbody > tr > td { padding:0; border:none; }
+    .print-running-header {
+      display:flex; justify-content:space-between; align-items:center; gap:12px;
+      font-size:7.5pt; color:#64748b; padding-bottom:6px; margin-bottom:10px;
+      border-bottom:1px solid #E2E8F0;
+    }
+    .print-running-header strong { color:#1B3A6B; font-weight:800; }
   </style>
 </head><body>
+
+<table class="print-shell">
+<thead><tr><td>
+  <div class="print-running-header">
+    <span><strong>Grupo Labmedic</strong> — Análise de Lucratividade</span>
+    <span>${escapeHtml(fileName)} • Gerado em ${now}</span>
+  </div>
+</td></tr></thead>
+<tbody><tr><td>
 
 <!-- ── HEADER -->
 <div class="header">
@@ -4748,6 +5651,7 @@ function exportPDF() {
     <thead><tr>
       <th class="c">#</th><th class="c">Empresa</th><th>Cliente</th>
       <th class="r">Lucratividade</th>
+      <th class="c">Equipamentos</th>
       <th class="r">Faturamento</th><th class="r">Receitas</th><th class="r">Inadimpl.</th>
       <th class="r">Insumos</th><th class="r">Aluguéis</th><th class="r">Resultado</th>
       <th class="r">Impostos</th><th class="r">Adm</th><th class="r">Res. Ajust.</th>
@@ -4756,6 +5660,7 @@ function exportPDF() {
     <tfoot><tr>
       <td colspan="3">TOTAL GERAL (${nClients} clientes)</td>
       <td class="r">${(totalFat>0?(totalResAj/totalFat*100):0).toFixed(2).replace('.',',')}%</td>
+      <td class="c">${totalEquip.toLocaleString('pt-BR')}</td>
       <td class="r">${fmtR(totalFat)}</td>
       <td class="r">${fmtR(totalRec)}</td>
       <td class="r">${fmtR(totalInad)}</td>
@@ -4774,12 +5679,192 @@ function exportPDF() {
   <span>${now}</span>
 </div>
 
-<script>window.onload = () => { window.print(); }<\/script>
+</td></tr></tbody>
+</table>
 </body></html>`;
 
-  const w = window.open('','_blank','width=1200,height=900');
-  w.document.write(html);
-  w.document.close();
+  printReportDocument(html, `Grupo Labmedic_Analise_de_Lucratividade_${now.replace(/[^0-9a-zA-Z]+/g,'-')}`);
+}
+
+/* ══════════════════════════════════════════════════════
+   EXPORT — PDF Patrimônio Aferido (A4 landscape, via printReportDocument)
+   Segue exatamente o mesmo padrão de exportPDF() acima: monta um HTML
+   auto-suficiente (sem dependências externas nem referências ao DOM da
+   tela) e imprime via printReportDocument(). Reflete o filtro atual do
+   modal (Cliente, Unidade, Categoria, Equipamento, Região e período de
+   Instalação) — inclusive quando nada foi alterado pelo usuário.
+══════════════════════════════════════════════════════ */
+function exportPatrimonioPDF() {
+  if (!patrimonioSheetFound) return;
+  const rows = getFilteredPatrimonio();
+
+  const totalEquip = rows.length;
+  const clientesUnidades = new Set(rows.map(patClienteUnidadeKey)).size;
+  const categoriasDistintas = new Set(rows.map(r => r.categoria)).size;
+  const totalLocacao = rows.reduce((s, r) => s + (r.locacao || 0), 0);
+  const now = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const fileName = document.getElementById('file-name-display').textContent;
+
+  const fCliente = patFilters.patCliente.size >= patAllValues.patCliente.length
+    ? `Todos (${patAllValues.patCliente.length})`
+    : `${patFilters.patCliente.size} de ${patAllValues.patCliente.length} selecionado(s)`;
+  const fUnidade = patFilters.patUnidade.size >= patAllValues.patUnidade.length
+    ? `Todas (${patAllValues.patUnidade.length})`
+    : `${patFilters.patUnidade.size} de ${patAllValues.patUnidade.length} selecionada(s)`;
+  const fCategoria = patFilters.patCategoria.size >= patAllValues.patCategoria.length
+    ? `Todas (${patAllValues.patCategoria.length})`
+    : `${patFilters.patCategoria.size} de ${patAllValues.patCategoria.length} selecionada(s)`;
+  const fEquipamento = patFilters.patEquipamento.size >= patAllValues.patEquipamento.length
+    ? `Todos (${patAllValues.patEquipamento.length})`
+    : `${patFilters.patEquipamento.size} de ${patAllValues.patEquipamento.length} selecionado(s)`;
+  const fRegiao = patFilters.patRegiao.size >= patAllValues.patRegiao.length
+    ? `Todas (${patAllValues.patRegiao.length})`
+    : `${patFilters.patRegiao.size} de ${patAllValues.patRegiao.length} selecionada(s)`;
+  const fPeriodo = (patDateFrom || patDateTo)
+    ? `${patDateFrom ? patDateFrom.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'} até ${patDateTo ? patDateTo.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}`
+    : 'Todo o período';
+
+  const catBreakdown = (() => {
+    const map = {};
+    rows.forEach(r => { const k = r.categoria || '—'; map[k] = (map[k] || 0) + 1; });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  })();
+  const regBreakdown = (() => {
+    const map = {};
+    rows.forEach(r => { const k = r.regiao || '—'; map[k] = (map[k] || 0) + 1; });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  })();
+  const breakdownRows = (entries) => entries.map(([label, count], i) => `
+    <tr class="${i % 2 === 0 ? 'even' : ''}"><td>${escapeHtml(label)}</td><td class="r">${count.toLocaleString('pt-BR')}</td></tr>`).join('');
+
+  const sorted = [...rows].sort((a, b) =>
+    (a.cliente || '').localeCompare(b.cliente || '') || (a.unidade || '').localeCompare(b.unidade || ''));
+  const tableRows = sorted.map((r, i) => `
+    <tr class="${i % 2 === 0 ? 'even' : ''}">
+      <td>${escapeHtml(r.cliente)}</td>
+      <td>${escapeHtml(r.unidade)}</td>
+      <td>${escapeHtml(r.categoria)}</td>
+      <td>${escapeHtml(r.equipamento)}</td>
+      <td>${escapeHtml(r.serial)}</td>
+      <td>${escapeHtml(r.regiao)}</td>
+      <td class="c">${r.instalacao ? r.instalacao.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
+      <td class="c">${r.prox instanceof Date ? r.prox.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
+      <td class="r">${r.locacao ? fmtR(r.locacao) : '—'}</td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head>
+  <meta charset="UTF-8">
+  <title>Grupo Labmedic — Métricas de Patrimônio Aferido</title>
+  <style>
+    @page { size: A4 landscape; margin: 12mm 14mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 8.5pt; color: #1a202c; background: #fff; }
+    .header { display:flex; justify-content:space-between; align-items:flex-end; padding-bottom:8px; border-bottom:2.5px solid #1B3A6B; margin-bottom:12px; }
+    .header-left h1 { font-size:16pt; font-weight:800; color:#1B3A6B; letter-spacing:-.3px; }
+    .header-left p  { font-size:8pt; color:#64748b; margin-top:2px; }
+    .header-right   { text-align:right; font-size:7.5pt; color:#64748b; line-height:1.5; }
+    .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:12px; }
+    .kpi { background:#F8FAFC; border:1px solid #E2E8F0; border-radius:6px; padding:7px 9px; }
+    .kpi-label { font-size:6.5pt; color:#94A3B8; text-transform:uppercase; letter-spacing:.04em; margin-bottom:2px; }
+    .kpi-val   { font-size:10pt; font-weight:800; color:#1B3A6B; line-height:1.1; }
+    .section-title { font-size:9pt; font-weight:700; color:#1B3A6B; border-left:3px solid #3B82F6; padding-left:7px; margin:12px 0 6px; }
+    table { width:100%; border-collapse:collapse; font-size:7.5pt; }
+    thead th { background:#1B3A6B; color:#fff; padding:5px 6px; font-weight:700; font-size:7pt; text-align:left; white-space:nowrap; }
+    thead th.r { text-align:right; }
+    thead th.c { text-align:center; }
+    tbody tr.even td { background:#F8FAFC; }
+    tbody td { padding:4px 6px; border-bottom:1px solid #E2E8F0; vertical-align:middle; }
+    td.r { text-align:right; font-variant-numeric:tabular-nums; }
+    td.c { text-align:center; }
+    .two-col { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:12px; }
+    .footer { border-top:1px solid #E2E8F0; padding-top:6px; margin-top:10px; display:flex; justify-content:space-between; font-size:6.5pt; color:#94A3B8; }
+    .page-break { page-break-before:always; padding-top:10px; }
+    tr { page-break-inside: avoid; break-inside: avoid; }
+    thead { display: table-header-group; }
+    tfoot { display: table-footer-group; }
+    .kpi-row, .kpi, .header { page-break-inside: avoid; break-inside: avoid; }
+    .section-title { page-break-after: avoid; break-after: avoid-page; }
+    /* Cabeçalho corrido: repete no topo de todas as páginas impressas
+       (ver comentário equivalente em exportPDF()). */
+    table.print-shell { width:100%; border-collapse:collapse; }
+    table.print-shell > thead > tr > td,
+    table.print-shell > tbody > tr > td { padding:0; border:none; }
+    .print-running-header {
+      display:flex; justify-content:space-between; align-items:center; gap:12px;
+      font-size:7.5pt; color:#64748b; padding-bottom:6px; margin-bottom:10px;
+      border-bottom:1px solid #E2E8F0;
+    }
+    .print-running-header strong { color:#1B3A6B; font-weight:800; }
+  </style>
+</head><body>
+
+<table class="print-shell">
+<thead><tr><td>
+  <div class="print-running-header">
+    <span><strong>Grupo Labmedic</strong> — Métricas de Patrimônio Aferido</span>
+    <span>${escapeHtml(fileName)} • Gerado em ${now}</span>
+  </div>
+</td></tr></thead>
+<tbody><tr><td>
+
+<div class="header">
+  <div class="header-left">
+    <h1>Grupo Labmedic — Métricas de Patrimônio Aferido</h1>
+    <p>Fonte: ${fileName} &nbsp;|&nbsp; Gerado em: ${now}</p>
+  </div>
+  <div class="header-right">
+    <div><strong>Cliente:</strong> ${fCliente} &nbsp;|&nbsp; <strong>Unidade:</strong> ${fUnidade}</div>
+    <div><strong>Categoria:</strong> ${fCategoria} &nbsp;|&nbsp; <strong>Equipamento:</strong> ${fEquipamento}</div>
+    <div><strong>Região:</strong> ${fRegiao}</div>
+    <div><strong>Instalação:</strong> ${fPeriodo}</div>
+  </div>
+</div>
+
+<div class="kpi-row">
+  <div class="kpi"><div class="kpi-label">Equipamentos</div><div class="kpi-val">${totalEquip.toLocaleString('pt-BR')}</div></div>
+  <div class="kpi"><div class="kpi-label">Clientes/Unidades</div><div class="kpi-val">${clientesUnidades.toLocaleString('pt-BR')}</div></div>
+  <div class="kpi"><div class="kpi-label">Categorias</div><div class="kpi-val">${categoriasDistintas.toLocaleString('pt-BR')}</div></div>
+  <div class="kpi"><div class="kpi-label">Total Locação</div><div class="kpi-val">${fmtR(totalLocacao)}</div></div>
+</div>
+
+<div class="two-col">
+  <div>
+    <div class="section-title">Equipamentos por Categoria — Top 10</div>
+    <table>
+      <thead><tr><th>Categoria</th><th class="r">Qtd.</th></tr></thead>
+      <tbody>${breakdownRows(catBreakdown)}</tbody>
+    </table>
+  </div>
+  <div>
+    <div class="section-title">Equipamentos por Região — Top 10</div>
+    <table>
+      <thead><tr><th>Região</th><th class="r">Qtd.</th></tr></thead>
+      <tbody>${breakdownRows(regBreakdown)}</tbody>
+    </table>
+  </div>
+</div>
+
+<div class="page-break">
+  <div class="section-title">Equipamentos filtrados (${sorted.length.toLocaleString('pt-BR')} registro(s))</div>
+  <table>
+    <thead><tr>
+      <th>Cliente</th><th>Unidade</th><th>Categoria</th><th>Equipamento</th>
+      <th>Serial</th><th>Região</th><th class="c">Instalação</th><th class="c">Próx. Manutenção</th><th class="r">Locação R$</th>
+    </tr></thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+</div>
+
+<div class="footer">
+  <span>Grupo Labmedic - Ambiente Confidencial</span>
+  <span>${now}</span>
+</div>
+
+</td></tr></tbody>
+</table>
+</body></html>`;
+
+  printReportDocument(html, `Grupo Labmedic_Patrimonio_Aferido_${now.replace(/[^0-9a-zA-Z]+/g,'-')}`);
 }
 
 /* ── Aggregation helpers for export ── */
@@ -4833,6 +5918,7 @@ function buildEmpresaRankingAgg(data) {
 document.addEventListener('keydown', e => {
   if (e.key==='Escape') {
     if (document.getElementById('client-modal')?.classList.contains('open')) closeClientModal();
+    if (document.getElementById('patrimonio-modal')?.classList.contains('open')) closePatrimonioModal();
     document.querySelectorAll('.ms-dropdown.open').forEach(d=>d.classList.remove('open'));
     document.querySelectorAll('.ms-trigger.open').forEach(d=>d.classList.remove('open'));
   }
@@ -4840,6 +5926,7 @@ document.addEventListener('keydown', e => {
 </script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
