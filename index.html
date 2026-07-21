@@ -1399,7 +1399,7 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
         <input type="text" id="input-adm" inputmode="numeric" autocomplete="off" value="0,00" readonly title="Calculado automaticamente a partir das categorias de despesas selecionadas e dos filtros de Ano/Mês">
         <div class="adm-progress" id="adm-progress"><div class="adm-progress-bar" id="adm-progress-bar"></div></div>
       </div>
-      <span class="param-caption">Soma das categorias <strong>marcadas</strong> em Base do Rateio, rateada por faturamento.</span>
+      <span class="param-caption">Soma das categorias <strong>marcadas</strong> em Base do Rateio, rateada por faturamento e por volume de equipamentos (aba Patrimônio aferido).</span>
     </div>
     <div class="param-group">
       <div class="param-field" id="param-field-desmarcadas">
@@ -1872,7 +1872,7 @@ function applyResultFilter(rows) {
 }
 
 let tableState = { data: [], search: '', sort: 'lucratividade', dir: 'desc', page: 1, pageSize: Number.MAX_SAFE_INTEGER };
-let params = { taxPct: 0, adminTotal: 0, adminTotalBase: 0, desmarcadasTotal: 0, refFat: 0 };  // impostos, despesas administrativas, despesas desmarcadas e faturamento de referência (universo Empresa/Ano/Mês, ignora cliente)
+let params = { taxPct: 0, adminTotal: 0, adminTotalBase: 0, desmarcadasTotal: 0, refFat: 0, refEquip: 0 };  // impostos, despesas administrativas, despesas desmarcadas, faturamento de referência e volume de equipamentos de referência (universo Empresa/Ano/Mês, ignora cliente) — refEquip é o denominador da parcela do rateio baseada em equipamentos (aba "Patrimônio aferido")
 let clienteSearchQuery = '';   // busca imediata no filtro de clientes
 let clientModalState = null;
 let dashboardRefreshState = { token: 0, shownAt: 0 };
@@ -2142,6 +2142,43 @@ function computeReferenceFaturamento() {
   return total;
 }
 
+/* Peso do faturamento e do volume de equipamentos na composição da fatia
+   de Despesas Administrativas atribuída a cada cliente. Mantido em 50/50:
+   nem só o tamanho financeiro do cliente, nem só a quantidade de
+   equipamentos instalados, isoladamente, refletem o esforço operacional
+   (assistência técnica, manutenção etc.) — os dois fatores, em conjunto,
+   equalizam a distribuição do rateio. Quando a aba "Patrimônio aferido"
+   não está disponível (refEquip = 0), o cálculo cai automaticamente de
+   volta para 100% faturamento (ver adjRow/recomputeAdminTotal), como já
+   acontecia antes desta mudança. */
+const RATEIO_EQUIP_WEIGHT = 0.5;
+const RATEIO_FAT_WEIGHT   = 1 - RATEIO_EQUIP_WEIGHT;
+
+/* Volume de equipamentos de REFERÊNCIA: soma, por CLIENTE ÚNICO (evita
+   contar o mesmo cliente mais de uma vez quando aparece em vários meses),
+   dos equipamentos vinculados na aba "Patrimônio aferido" — restrito aos
+   clientes que possuem faturamento dentro do universo Empresa/Ano/Mês
+   filtrado (mesmo critério de computeReferenceFaturamento), mas IGNORANDO
+   o filtro de Clientes. É o denominador da parcela do rateio baseada em
+   volume de equipamentos — o equivalente, para equipamentos, ao que
+   computeReferenceFaturamento calcula para faturamento. */
+function computeReferenceEquip() {
+  if (!rawData.length) return 0;
+  const clientesRef = new Set();
+  for (const r of rawData) {
+    if (
+      filters.empresa.has(r.empresa) &&
+      filters.ano.has(r.year) &&
+      filters.mes.has(r.month)
+    ) {
+      clientesRef.add(r.cliente);
+    }
+  }
+  let total = 0;
+  clientesRef.forEach(k => { total += (patrimonioCountByClient[k] || 0); });
+  return total;
+}
+
 /* Recalcula:
    - params.adminTotalBase: total global bruto das despesas administrativas
                             (Empresa/Ano/Mês/Categoria) — INDEPENDENTE do
@@ -2159,11 +2196,28 @@ function computeReferenceFaturamento() {
 function recomputeAdminTotal() {
   const base        = computeDespesasAdmTotal();
   const refFat      = computeReferenceFaturamento();
+  const refEquip    = computeReferenceEquip();
   const filteredFat = getFiltered().reduce((s,r)=>s+r.faturamento, 0);
-  const effective   = refFat > 0 ? base * (filteredFat / refFat) : 0;
+  // Volume de equipamentos do cenário filtrado, por CLIENTE ÚNICO (evita
+  // contar o mesmo cliente mais de uma vez quando ele aparece dividido em
+  // vários meses/empresas dentro do cenário filtrado).
+  const filteredEquip = [...new Set(getFiltered().map(r => r.cliente))]
+    .reduce((s,k) => s + (patrimonioCountByClient[k] || 0), 0);
+  const fatShare   = refFat   > 0 ? (filteredFat   / refFat)   : 0;
+  const equipShare = refEquip > 0 ? (filteredEquip / refEquip) : 0;
+  // Rateio combinado: faturamento + volume de equipamentos (aba Patrimônio
+  // aferido), equalizando as proporções distribuídas — mais equipamentos
+  // instalados implicam maior esforço de assistência técnica, um custo
+  // operacional relevante. Sem dados de Patrimônio (refEquip = 0), o
+  // cálculo preserva integralmente o comportamento original (100% por
+  // faturamento).
+  const effective = refEquip > 0
+    ? base * (RATEIO_FAT_WEIGHT * fatShare + RATEIO_EQUIP_WEIGHT * equipShare)
+    : base * fatShare;
 
   params.adminTotalBase = base;
   params.refFat         = refFat;
+  params.refEquip       = refEquip;
   const changed = effective !== params.adminTotal;
   params.adminTotal = effective;
 
@@ -2197,18 +2251,40 @@ function effectiveAdminTotal(filteredData) {
 }
 
 /* Retorna { impostos, adm, resultadoAjustado } para uma linha agregada.
-   O rateio das despesas administrativas usa SEMPRE o denominador de
-   referência (faturamento do universo Empresa/Ano/Mês, sem filtro de
-   cliente) e o total BASE (bruto) de despesas administrativas. Assim, cada
+   O rateio das despesas administrativas usa SEMPRE os denominadores de
+   referência — faturamento e volume de equipamentos (aba "Patrimônio
+   aferido") do universo Empresa/Ano/Mês, sem filtro de cliente — e o
+   total BASE (bruto) de despesas administrativas. Assim, cada
    cliente/linha carrega estritamente a sua fatia proporcional do bolo
    administrativo, independentemente de quantos clientes estejam filtrados
-   — inclusive quando apenas um cliente está selecionado. */
+   — inclusive quando apenas um cliente está selecionado.
+
+   A fatia de cada cliente combina duas proporções (RATEIO_FAT_WEIGHT /
+   RATEIO_EQUIP_WEIGHT, 50/50): sua participação no faturamento de
+   referência E sua participação no volume de equipamentos instalados de
+   referência — equipamentos representam esforço de assistência técnica,
+   um custo operacional relevante independente do faturamento do cliente.
+   A parcela de equipamentos só é aplicada quando a linha representa um
+   cliente único (row.clientKey) e há dados de Patrimônio disponíveis
+   (params.refEquip > 0); caso contrário (linhas agregadas por Empresa ou
+   por Mês, ou planilha sem a aba "Patrimônio aferido"), o cálculo cai de
+   volta para 100% faturamento — o mesmo comportamento de antes desta
+   mudança. */
 function adjRow(row, globalBase, admEffective) {
   const rowBase   = (row.fat || 0);
   const impostos  = rowBase * (params.taxPct / 100);
   const admBase   = params.adminTotalBase || 0;
   const refFat    = params.refFat || 0;
-  const adm       = refFat > 0 ? admBase * (rowBase / refFat) : 0;
+  const refEquip  = params.refEquip || 0;
+  const fatShare  = refFat > 0 ? (rowBase / refFat) : 0;
+  let adm;
+  if (row.clientKey && refEquip > 0) {
+    const rowEquip   = patrimonioCountByClient[row.clientKey] || 0;
+    const equipShare = rowEquip / refEquip;
+    adm = admBase * (RATEIO_FAT_WEIGHT * fatShare + RATEIO_EQUIP_WEIGHT * equipShare);
+  } else {
+    adm = admBase * fatShare;
+  }
   const resAjustado = (row.res || 0) - impostos - adm;
   return { impostos, adm, resAjustado };
 }
@@ -4444,13 +4520,24 @@ function buildClientDetail(clientKey, emp) {
 
   const scenarioBases = computeBases(scenario);
   const scenarioAdmEff = effectiveAdminTotal(scenario);
-  const totalsAdj = adjRow({ fat: totals.fat, vend: totals.vend, alug: totals.alug, res: totals.res }, scenarioBases.base, scenarioAdmEff);
+  // Passa "totals" (com clientKey) para que o rateio use a fatia
+  // combinada faturamento + volume de equipamentos do cliente, e não só
+  // faturamento (ver adjRow).
+  const totalsAdj = adjRow(totals, scenarioBases.base, scenarioAdmEff);
   totals.impostos = totalsAdj.impostos;
   totals.adm      = totalsAdj.adm;
   totals.resAj    = totalsAdj.resAjustado;
 
   const monthly = rows.map(r => {
-    const adj = adjRow({ fat: r.faturamento, vend: r.vendas, alug: r.alugueis, res: r.resultado }, scenarioBases.base, scenarioAdmEff);
+    const impostos = r.faturamento * (params.taxPct / 100);
+    // A parcela de equipamentos do rateio (aba Patrimônio aferido) não tem
+    // granularidade mensal — é um retrato do parque instalado do cliente,
+    // não do mês. Por isso a Despesa Adm. total do cliente (totals.adm,
+    // já combinando faturamento + equipamentos) é distribuída mês a mês
+    // proporcionalmente ao faturamento de cada mês, garantindo que a soma
+    // das linhas mensais bata exatamente com a linha de Total do modal.
+    const adm = totals.fat > 0 ? totals.adm * (r.faturamento / totals.fat) : 0;
+    const resAjustado = r.resultado - impostos - adm;
     // Quando o cliente tem mais de uma empresa (isAllEmpresas), um mesmo
     // mês pode aparecer mais de uma vez (uma linha por empresa) — o nome
     // da empresa é anexado ao rótulo para não parecer um mês duplicado.
@@ -4468,9 +4555,9 @@ function buildClientDetail(clientKey, emp) {
       vend: r.vendas,
       alug: r.alugueis,
       res: r.resultado,
-      impostos: adj.impostos,
-      adm: adj.adm,
-      resAj: adj.resAjustado
+      impostos,
+      adm,
+      resAj: resAjustado
     };
   });
 
