@@ -1855,6 +1855,7 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
         </div>
       </div>
       <div class="client-modal-actions">
+        <button class="client-modal-btn primary" onclick="exportPatClienteDetalhesPDF()">🖨️ PDF A4 (paisagem)</button>
         <button class="client-modal-btn ghost" onclick="closePatClienteDetalhes()">✕ Fechar</button>
       </div>
     </div>
@@ -1923,6 +1924,13 @@ let patDateTo   = null; // Date | null — filtro "Instalação" (até)
 // interferir em nenhum outro cálculo/tela do modal de Patrimônio.
 let patTotalsByClienteUnidade = {}; // { "Cliente — Unidade": quantidade }
 let patLastFilteredRows = [];       // último `rows` (filtrado) renderizado em renderPatrimonioModal
+// Cliente/Unidade e linhas atualmente exibidas no modal de detalhes (ver
+// openPatClienteDetalhes), reaproveitadas pelo botão "PDF A4 (retrato)"
+// (exportPatClienteDetalhesPDF) sem precisar recalcular nada — o PDF
+// exportado reflete exatamente o que está na tela do modal de detalhes.
+let patClienteDetalheRows    = [];
+let patClienteDetalheCliente = '';
+let patClienteDetalheUnidade = '';
 /* Recalcula o campo "resultado" de cada linha do dataset mestre.
    Como toda a cadeia (KPIs, gráficos, ranking, tabela e exportações) lê
    sempre "resultado" a partir de rawData/getFiltered(), um único recálculo
@@ -3712,6 +3720,9 @@ function closePatrimonioModal() {
    número exibido na coluna "Total no Cliente/Unidade" daquela linha. */
 function openPatClienteDetalhes(cliente, unidade) {
   const rows = patLastFilteredRows.filter(r => (r.cliente || '') === cliente && (r.unidade || '') === unidade);
+  patClienteDetalheRows    = rows;
+  patClienteDetalheCliente = cliente;
+  patClienteDetalheUnidade = unidade;
 
   const titleEl = document.getElementById('pat-cliente-modal-title');
   if (titleEl) {
@@ -3757,6 +3768,166 @@ function closePatClienteDetalhes() {
   const modal = document.getElementById('pat-cliente-modal');
   if (!modal) return;
   modal.classList.remove('open');
+}
+
+/* Gera um PDF profissional (A4 paisagem) com a listagem de equipamentos
+   exibida no modal de detalhes de um Cliente/Unidade específico (ver
+   openPatClienteDetalhes). Reaproveita o mesmo layout/identidade visual do
+   PDF geral do módulo (exportPatrimonioPDF) e a mesma infraestrutura de
+   impressão (printReportDocument), porém com escopo restrito ao recorte
+   exibido no modal — ou seja, os mesmos equipamentos, na mesma quantidade,
+   já filtrados pelos filtros ativos em "Equipamentos filtrados" no momento
+   em que o modal de detalhes foi aberto. */
+function exportPatClienteDetalhesPDF() {
+  const rows = patClienteDetalheRows;
+  const cliente = patClienteDetalheCliente;
+  const unidade = patClienteDetalheUnidade;
+  const label = cliente && unidade ? `${cliente} — ${unidade}` : (cliente || unidade || '(Sem identificação)');
+
+  const totalEquip = rows.length;
+  const categoriasDistintas = new Set(rows.map(r => r.categoria)).size;
+  const totalLocacao = rows.reduce((s, r) => s + (r.locacao || 0), 0);
+  const now = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const fileName = document.getElementById('file-name-display').textContent;
+
+  // Mesmo resumo de filtros ativos exibido no PDF geral (exportPatrimonioPDF)
+  // — dá contexto de que este recorte por cliente também respeita os
+  // filtros de Categoria/Equipamento/Região/Instalação selecionados pelo
+  // usuário, além do Cliente/Unidade específico deste relatório.
+  const fCategoria = patFilters.patCategoria.size >= patAllValues.patCategoria.length
+    ? `Todas (${patAllValues.patCategoria.length})`
+    : `${patFilters.patCategoria.size} de ${patAllValues.patCategoria.length} selecionada(s)`;
+  const fEquipamento = patFilters.patEquipamento.size >= patAllValues.patEquipamento.length
+    ? `Todos (${patAllValues.patEquipamento.length})`
+    : `${patFilters.patEquipamento.size} de ${patAllValues.patEquipamento.length} selecionado(s)`;
+  const fRegiao = patFilters.patRegiao.size >= patAllValues.patRegiao.length
+    ? `Todas (${patAllValues.patRegiao.length})`
+    : `${patFilters.patRegiao.size} de ${patAllValues.patRegiao.length} selecionada(s)`;
+  const fPeriodo = (patDateFrom || patDateTo)
+    ? `${patDateFrom ? patDateFrom.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'} até ${patDateTo ? patDateTo.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}`
+    : 'Todo o período';
+
+  const catBreakdown = (() => {
+    const map = {};
+    rows.forEach(r => { const k = r.categoria || '—'; map[k] = (map[k] || 0) + 1; });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  })();
+  const breakdownRows = (entries) => entries.map(([lbl, count], i) => `
+    <tr class="${i % 2 === 0 ? 'even' : ''}"><td>${escapeHtml(lbl)}</td><td class="r">${count.toLocaleString('pt-BR')}</td></tr>`).join('');
+
+  const sorted = [...rows].sort((a, b) =>
+    (a.categoria || '').localeCompare(b.categoria || '') || (a.equipamento || '').localeCompare(b.equipamento || ''));
+  const tableRows = sorted.length ? sorted.map((r, i) => `
+    <tr class="${i % 2 === 0 ? 'even' : ''}">
+      <td>${escapeHtml(r.categoria)}</td>
+      <td>${escapeHtml(r.equipamento)}</td>
+      <td>${escapeHtml(r.serial)}</td>
+      <td>${escapeHtml(r.setor)}</td>
+      <td>${escapeHtml(r.regiao)}</td>
+      <td class="c">${r.instalacao ? r.instalacao.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
+      <td class="c">${r.prevAtual instanceof Date ? r.prevAtual.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
+      <td class="c">${r.prox instanceof Date ? r.prox.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
+      <td class="r">${r.locacao ? fmtR(r.locacao) : '—'}</td>
+    </tr>`).join('') : `<tr><td colspan="9" style="text-align:center;color:#94A3B8;padding:14px">Nenhum equipamento encontrado para este cliente/unidade no filtro atual.</td></tr>`;
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head>
+  <meta charset="UTF-8">
+  <title>Grupo Labmedic — Equipamentos — ${escapeHtml(label)}</title>
+  <style>
+    @page { size: A4 landscape; margin: 12mm 14mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 8.5pt; color: #1a202c; background: #fff; }
+    .header { display:flex; justify-content:space-between; align-items:flex-end; padding-bottom:8px; border-bottom:2.5px solid #1B3A6B; margin-bottom:12px; }
+    .header-left h1 { font-size:15pt; font-weight:800; color:#1B3A6B; letter-spacing:-.3px; }
+    .header-left p  { font-size:8pt; color:#64748b; margin-top:2px; }
+    .header-right   { text-align:right; font-size:7.5pt; color:#64748b; line-height:1.5; }
+    .kpi-row { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:12px; }
+    .kpi { background:#F8FAFC; border:1px solid #E2E8F0; border-radius:6px; padding:7px 9px; }
+    .kpi-label { font-size:6.5pt; color:#94A3B8; text-transform:uppercase; letter-spacing:.04em; margin-bottom:2px; }
+    .kpi-val   { font-size:10pt; font-weight:800; color:#1B3A6B; line-height:1.1; }
+    .section-title { font-size:9pt; font-weight:700; color:#1B3A6B; border-left:3px solid #3B82F6; padding-left:7px; margin:12px 0 6px; }
+    table { width:100%; border-collapse:collapse; font-size:7.5pt; }
+    thead th { background:#1B3A6B; color:#fff; padding:5px 6px; font-weight:700; font-size:7pt; text-align:left; white-space:nowrap; }
+    thead th.r { text-align:right; }
+    thead th.c { text-align:center; }
+    tbody tr.even td { background:#F8FAFC; }
+    tbody td { padding:4px 6px; border-bottom:1px solid #E2E8F0; vertical-align:middle; }
+    td.r { text-align:right; font-variant-numeric:tabular-nums; }
+    td.c { text-align:center; }
+    .footer { border-top:1px solid #E2E8F0; padding-top:6px; margin-top:10px; display:flex; justify-content:space-between; font-size:6.5pt; color:#94A3B8; }
+    .page-break { page-break-before:always; padding-top:10px; }
+    tr { page-break-inside: avoid; break-inside: avoid; }
+    thead { display: table-header-group; }
+    tfoot { display: table-footer-group; }
+    .kpi-row, .kpi, .header { page-break-inside: avoid; break-inside: avoid; }
+    .section-title { page-break-after: avoid; break-after: avoid-page; }
+    /* Cabeçalho corrido: repete no topo de todas as páginas impressas
+       (ver comentário equivalente em exportPDF()/exportPatrimonioPDF()). */
+    table.print-shell { width:100%; border-collapse:collapse; }
+    table.print-shell > thead > tr > td,
+    table.print-shell > tbody > tr > td { padding:0; border:none; }
+    .print-running-header {
+      display:flex; justify-content:space-between; align-items:center; gap:12px;
+      font-size:7.5pt; color:#64748b; padding-bottom:6px; margin-bottom:10px;
+      border-bottom:1px solid #E2E8F0;
+    }
+    .print-running-header strong { color:#1B3A6B; font-weight:800; }
+  </style>
+</head><body>
+
+<table class="print-shell">
+<thead><tr><td>
+  <div class="print-running-header">
+    <span><strong>Grupo Labmedic</strong> — Equipamentos — ${escapeHtml(label)}</span>
+    <span>${escapeHtml(fileName)} • Gerado em ${now}</span>
+  </div>
+</td></tr></thead>
+<tbody><tr><td>
+
+<div class="header">
+  <div class="header-left">
+    <h1>Grupo Labmedic — Equipamentos do Cliente/Unidade</h1>
+    <p>${escapeHtml(label)}</p>
+    <p>Fonte: ${escapeHtml(fileName)} &nbsp;|&nbsp; Gerado em: ${now}</p>
+  </div>
+  <div class="header-right">
+    <div><strong>Categoria:</strong> ${fCategoria} &nbsp;|&nbsp; <strong>Equipamento:</strong> ${fEquipamento}</div>
+    <div><strong>Região:</strong> ${fRegiao}</div>
+    <div><strong>Instalação:</strong> ${fPeriodo}</div>
+  </div>
+</div>
+
+<div class="kpi-row">
+  <div class="kpi"><div class="kpi-label">Equipamentos</div><div class="kpi-val">${totalEquip.toLocaleString('pt-BR')}</div></div>
+  <div class="kpi"><div class="kpi-label">Categorias</div><div class="kpi-val">${categoriasDistintas.toLocaleString('pt-BR')}</div></div>
+  <div class="kpi"><div class="kpi-label">Total Locação</div><div class="kpi-val">${fmtR(totalLocacao)}</div></div>
+</div>
+
+<div class="section-title">Equipamentos por Categoria — Top 10</div>
+<table style="margin-bottom:12px">
+  <thead><tr><th>Categoria</th><th class="r">Qtd.</th></tr></thead>
+  <tbody>${breakdownRows(catBreakdown)}</tbody>
+</table>
+
+<div class="section-title">Equipamentos (${sorted.length.toLocaleString('pt-BR')} registro(s))</div>
+<table>
+  <thead><tr>
+    <th>Categoria</th><th>Equipamento</th><th>Serial</th><th>Setor</th><th>Região</th>
+    <th class="c">Instalação</th><th class="c">Prev. Atual</th><th class="c">Próx. Manutenção</th><th class="r">Locação R$</th>
+  </tr></thead>
+  <tbody>${tableRows}</tbody>
+</table>
+
+<div class="footer">
+  <span>Grupo Labmedic - Ambiente Confidencial</span>
+  <span>${now}</span>
+</div>
+
+</td></tr></tbody>
+</table>
+</body></html>`;
+
+  printReportDocument(html, `Grupo Labmedic_Equipamentos_${slugify(label)}_${now.replace(/[^0-9a-zA-Z]+/g,'-')}`);
 }
 
 function updateFilterLabel(id) {
