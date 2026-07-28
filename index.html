@@ -958,6 +958,22 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
 .client-detail-table tbody tr:nth-child(even) { background: rgba(15,23,42,.32); }
 .client-detail-table tbody td { padding: .7rem .85rem; border-bottom: 1px solid var(--border); }
 .client-detail-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Botão/ícone "ver detalhes dos equipamentos" ao lado do nome do cliente,
+   na tabela "Equipamentos filtrados" do modal de Patrimônio (ver
+   pat-client-detail-btn / openPatClienteDetalhes). Mantém o mesmo padrão
+   visual dos demais botões de ação do dashboard (.client-action-btn),
+   porém compacto o bastante para caber dentro de uma célula de tabela. */
+.pat-client-cell { display: flex; align-items: center; gap: .4rem; }
+.pat-client-cell .pat-client-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pat-client-detail-btn {
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 7px; border: 1px solid rgba(96,165,250,.3);
+  background: rgba(59,130,246,.12); color: var(--accent2); font-size: .74rem; line-height: 1;
+  cursor: pointer; transition: all .15s ease; padding: 0;
+}
+.pat-client-detail-btn:hover { background: rgba(59,130,246,.22); border-color: rgba(96,165,250,.5); transform: translateY(-1px); }
+.pat-table-total-col { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .client-pdf-toolbar {
   display: flex; align-items: center; justify-content: space-between; gap: .8rem; margin-bottom: .9rem;
   padding: .85rem 1rem; border-radius: 16px; border: 1px solid var(--border); background: rgba(15,23,42,.62);
@@ -1812,12 +1828,48 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
                 <tr>
                   <th>Cliente</th><th>Unidade</th><th>Categoria</th><th>Equipamento</th>
                   <th>Serial</th><th>Região</th><th>Instalação</th><th>Próx. Manutenção</th><th class="num">Locação R$</th>
+                  <th class="num" title="Quantidade total de equipamentos deste Cliente/Unidade dentro do filtro atual">Total no Cliente/Unidade</th>
                 </tr>
               </thead>
               <tbody id="pat-table-body"></tbody>
             </table>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Detalhes dos Equipamentos de um Cliente/Unidade (aberto a partir do
+     ícone 🔎 ao lado do nome do cliente, na tabela "Equipamentos filtrados"
+     do modal de Métricas de Patrimônio). Reaproveita o mesmo padrão visual
+     (.client-modal / .client-detail-table) já usado pelos demais modais,
+     e empilha por cima do modal de Patrimônio (z-index maior). -->
+<div class="client-modal" id="pat-cliente-modal" style="z-index:1300" onclick="if (event.target === this) closePatClienteDetalhes()">
+  <div class="client-modal-panel" style="width:min(980px, 100%)">
+    <div class="client-modal-header">
+      <div class="client-modal-title">
+        <h3 id="pat-cliente-modal-title">🩺 Equipamentos do cliente</h3>
+        <div class="client-modal-subtitle">
+          <span id="pat-cliente-modal-meta"></span>
+        </div>
+      </div>
+      <div class="client-modal-actions">
+        <button class="client-modal-btn ghost" onclick="closePatClienteDetalhes()">✕ Fechar</button>
+      </div>
+    </div>
+    <div class="client-modal-body">
+      <div class="client-summary-grid" id="pat-cliente-kpi-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:1rem"></div>
+      <div style="overflow:auto;max-height:460px">
+        <table class="client-detail-table" id="pat-cliente-table">
+          <thead>
+            <tr>
+              <th>Categoria</th><th>Equipamento</th><th>Serial</th><th>Setor</th>
+              <th>Região</th><th>Instalação</th><th>Prev. Atual</th><th>Próx. Manutenção</th><th class="num">Locação R$</th>
+            </tr>
+          </thead>
+          <tbody id="pat-cliente-table-body"></tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -1864,6 +1916,13 @@ let patAllValues = { patCliente: [], patUnidade: [], patCategoria: [], patEquipa
 let patSearchQueries = { patCliente: '', patUnidade: '', patCategoria: '', patEquipamento: '', patRegiao: '' };
 let patDateFrom = null; // Date | null — filtro "Instalação" (de)
 let patDateTo   = null; // Date | null — filtro "Instalação" (até)
+// Suporte à coluna totalizadora "Total no Cliente/Unidade" e ao modal de
+// detalhes por cliente (ícone 🔎 ao lado do nome do cliente) na tabela
+// "Equipamentos filtrados" — ver renderPatrimonioModal/openPatClienteDetalhes.
+// Ambos ficam restritos ao mesmo recorte já filtrado exibido na tabela, sem
+// interferir em nenhum outro cálculo/tela do modal de Patrimônio.
+let patTotalsByClienteUnidade = {}; // { "Cliente — Unidade": quantidade }
+let patLastFilteredRows = [];       // último `rows` (filtrado) renderizado em renderPatrimonioModal
 /* Recalcula o campo "resultado" de cada linha do dataset mestre.
    Como toda a cadeia (KPIs, gráficos, ranking, tabela e exportações) lê
    sempre "resultado" a partir de rawData/getFiltered(), um único recálculo
@@ -3567,9 +3626,34 @@ function renderPatrimonioModal() {
     const MAX_ROWS = 500;
     const sorted = [...rows].sort((a, b) =>
       (a.cliente || '').localeCompare(b.cliente || '') || (a.unidade || '').localeCompare(b.unidade || ''));
-    tbody.innerHTML = sorted.slice(0, MAX_ROWS).map(r => `
+    // Totais por Cliente/Unidade (coluna totalizadora "Total no Cliente/
+    // Unidade"): quantidade de equipamentos, dentro do filtro atual, que
+    // compartilham a mesma combinação Cliente+Unidade da linha (mesma
+    // chave usada pelo KPI "Clientes/Unidades" — ver patClienteUnidadeKey).
+    // Guardado em patTotalsByClienteUnidade para ser reaproveitado pelo
+    // modal de detalhes aberto a partir do ícone 🔎 (ver
+    // openPatClienteDetalhes), evitando recalcular o mesmo agrupamento.
+    patTotalsByClienteUnidade = {};
+    rows.forEach(r => {
+      const k = patClienteUnidadeKey(r);
+      patTotalsByClienteUnidade[k] = (patTotalsByClienteUnidade[k] || 0) + 1;
+    });
+    // Guarda o recorte filtrado atual para o modal de detalhes por
+    // Cliente/Unidade (openPatClienteDetalhes) reaproveitar sem precisar
+    // recalcular os filtros — o detalhe mostrado reflete o mesmo universo
+    // já exibido no quadro "Equipamentos filtrados".
+    patLastFilteredRows = rows;
+    tbody.innerHTML = sorted.slice(0, MAX_ROWS).map(r => {
+      const key = patClienteUnidadeKey(r);
+      const total = patTotalsByClienteUnidade[key] || 0;
+      return `
       <tr>
-        <td>${escapeHtml(r.cliente)}</td>
+        <td>
+          <div class="pat-client-cell">
+            <span class="pat-client-name" title="${escapeHtml(r.cliente)}">${escapeHtml(r.cliente)}</span>
+            <button type="button" class="pat-client-detail-btn" data-cliente="${escapeHtml(r.cliente)}" data-unidade="${escapeHtml(r.unidade)}" title="Ver detalhes dos equipamentos deste cliente/unidade">🔎</button>
+          </div>
+        </td>
         <td>${escapeHtml(r.unidade)}</td>
         <td>${escapeHtml(r.categoria)}</td>
         <td>${escapeHtml(r.equipamento)}</td>
@@ -3578,7 +3662,9 @@ function renderPatrimonioModal() {
         <td>${r.instalacao ? r.instalacao.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
         <td>${r.prox instanceof Date ? r.prox.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
         <td class="num">${r.locacao ? fmtR(r.locacao) : '—'}</td>
-      </tr>`).join('');
+        <td class="pat-table-total-col">${total.toLocaleString('pt-BR')}</td>
+      </tr>`;
+    }).join('');
     const countEl = document.getElementById('pat-table-count');
     if (countEl) {
       countEl.textContent = sorted.length > MAX_ROWS
@@ -3600,6 +3686,77 @@ function closePatrimonioModal() {
   modal.classList.remove('open');
   document.querySelectorAll('#patrimonio-modal .ms-dropdown.open').forEach(d => d.classList.remove('open'));
   document.querySelectorAll('#patrimonio-modal .ms-trigger.open').forEach(d => d.classList.remove('open'));
+}
+
+/* Delegação de clique no corpo da tabela "Equipamentos filtrados": captura
+   cliques no ícone 🔎 (.pat-client-detail-btn) de qualquer linha, mesmo após
+   o tbody ser reconstruído via innerHTML a cada renderPatrimonioModal — o
+   listener fica preso ao elemento <tbody> (que não é recriado), não às
+   linhas internas, então continua funcionando normalmente após cada
+   filtro/atualização. Registrado uma única vez. */
+(function initPatClienteDetailDelegation() {
+  const tbody = document.getElementById('pat-table-body');
+  if (!tbody) return;
+  tbody.addEventListener('click', e => {
+    const btn = e.target.closest('.pat-client-detail-btn');
+    if (!btn) return;
+    openPatClienteDetalhes(btn.dataset.cliente || '', btn.dataset.unidade || '');
+  });
+})();
+
+/* Modal de detalhes dos equipamentos de um Cliente/Unidade específico,
+   aberto pelo ícone 🔎 ao lado do nome do cliente na tabela "Equipamentos
+   filtrados". Reaproveita o mesmo recorte já filtrado exibido naquela
+   tabela (patLastFilteredRows), restrito à combinação Cliente+Unidade
+   clicada — ou seja, mostra exatamente os equipamentos que compõem o
+   número exibido na coluna "Total no Cliente/Unidade" daquela linha. */
+function openPatClienteDetalhes(cliente, unidade) {
+  const rows = patLastFilteredRows.filter(r => (r.cliente || '') === cliente && (r.unidade || '') === unidade);
+
+  const titleEl = document.getElementById('pat-cliente-modal-title');
+  if (titleEl) {
+    const label = cliente && unidade ? `${cliente} — ${unidade}` : (cliente || unidade || '(Sem identificação)');
+    titleEl.textContent = `🩺 Equipamentos — ${label}`;
+  }
+  const metaEl = document.getElementById('pat-cliente-modal-meta');
+  if (metaEl) metaEl.textContent = `${rows.length.toLocaleString('pt-BR')} equipamento(s) no filtro atual do quadro "Equipamentos filtrados"`;
+
+  const categoriasDistintas = new Set(rows.map(r => r.categoria)).size;
+  const totalLocacao = rows.reduce((s, r) => s + (r.locacao || 0), 0);
+  const kpiGrid = document.getElementById('pat-cliente-kpi-grid');
+  if (kpiGrid) {
+    kpiGrid.innerHTML = `
+      <div class="client-kpi"><div class="client-kpi-label">Equipamentos</div><div class="client-kpi-value">${rows.length.toLocaleString('pt-BR')}</div></div>
+      <div class="client-kpi"><div class="client-kpi-label">Categorias</div><div class="client-kpi-value">${categoriasDistintas.toLocaleString('pt-BR')}</div></div>
+      <div class="client-kpi"><div class="client-kpi-label">Total Locação</div><div class="client-kpi-value">${fmtR(totalLocacao)}</div></div>
+    `;
+  }
+
+  const tbody = document.getElementById('pat-cliente-table-body');
+  if (tbody) {
+    const sorted = [...rows].sort((a, b) =>
+      (a.categoria || '').localeCompare(b.categoria || '') || (a.equipamento || '').localeCompare(b.equipamento || ''));
+    tbody.innerHTML = sorted.length ? sorted.map(r => `
+      <tr>
+        <td>${escapeHtml(r.categoria)}</td>
+        <td>${escapeHtml(r.equipamento)}</td>
+        <td>${escapeHtml(r.serial)}</td>
+        <td>${escapeHtml(r.setor)}</td>
+        <td>${escapeHtml(r.regiao)}</td>
+        <td>${r.instalacao ? r.instalacao.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
+        <td>${r.prevAtual instanceof Date ? r.prevAtual.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
+        <td>${r.prox instanceof Date ? r.prox.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
+        <td class="num">${r.locacao ? fmtR(r.locacao) : '—'}</td>
+      </tr>`).join('') : `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:1.5rem">Nenhum equipamento encontrado para este cliente/unidade no filtro atual.</td></tr>`;
+  }
+
+  document.getElementById('pat-cliente-modal').classList.add('open');
+}
+
+function closePatClienteDetalhes() {
+  const modal = document.getElementById('pat-cliente-modal');
+  if (!modal) return;
+  modal.classList.remove('open');
 }
 
 function updateFilterLabel(id) {
@@ -6066,6 +6223,7 @@ function buildEmpresaRankingAgg(data) {
 document.addEventListener('keydown', e => {
   if (e.key==='Escape') {
     if (document.getElementById('client-modal')?.classList.contains('open')) closeClientModal();
+    if (document.getElementById('pat-cliente-modal')?.classList.contains('open')) closePatClienteDetalhes();
     if (document.getElementById('patrimonio-modal')?.classList.contains('open')) closePatrimonioModal();
     document.querySelectorAll('.ms-dropdown.open').forEach(d=>d.classList.remove('open'));
     document.querySelectorAll('.ms-trigger.open').forEach(d=>d.classList.remove('open'));
