@@ -1447,6 +1447,17 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
       <span class="param-caption">Filtra o Ranking por Cliente, a planilha e os PDFs pelo sinal do <strong>Resultado Ajustado</strong>.</span>
     </div>
 
+    <div class="param-group" id="aluguel-indefinido-filter-group">
+      <div class="param-field" style="min-width:240px">
+        <label for="select-aluguel-indefinido">Equip. sem Locação (“?”)</label>
+        <select id="select-aluguel-indefinido" onchange="setAluguelIndefinidoFilter(this.value)" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.55);color:inherit;font-weight:600;cursor:pointer">
+          <option value="excluir" selected>Excluir do rateio</option>
+          <option value="incluir">Incluir no rateio</option>
+        </select>
+      </div>
+      <span class="param-caption">Equipamentos com <strong>“?”</strong> na coluna Aluguel/Locação da aba <strong>Patrimônio aferido</strong> — controla se entram no volume de equipamentos do rateio de Despesas Adm.</span>
+    </div>
+
     <div class="param-group" id="patrimonio-metrics-group">
       <div class="param-field" style="min-width:220px">
         <button type="button" class="btn-clear-all" id="btn-open-patrimonio" onclick="openPatrimonioModal()" style="width:100%;justify-content:center;color:var(--accent2);border-color:rgba(96,165,250,.35)">
@@ -1837,6 +1848,17 @@ let patrimonioCountByClient = {};
 // Categorias que não representam equipamento aferido de fato (acessórios) —
 // permanecem sempre fora do universo do modal, inclusive das opções do filtro.
 const PAT_EXCLUDED_CATEGORIAS = new Set(['AUXILIAR', 'PERIFERICO']); // comparado após norm()
+// Controla se os equipamentos com "?" na coluna ALUGUEL/LOCAÇÃO R$ da aba
+// "Patrimônio aferido" entram no volume de equipamentos usado pelo rateio de
+// Despesas Administrativas (patrimonioCountByClient / refEquip / adjRow).
+// Padrão: EXCLUÍDOS do rateio (esses equipamentos não têm valor de locação
+// apurado, então não representam esforço de assistência técnica confiável
+// para compor a base do rateio). O usuário pode alternar pelo seletor ao
+// lado do filtro "Exibir Clientes" (positivos/negativos) — ver
+// setAluguelIndefinidoFilter(). Não afeta a listagem/KPIs do modal
+// "Métricas de Patrimônio Aferido", que continua exibindo todos os
+// equipamentos cadastrados, nem o KPI "Total Locação".
+let incluirEquipAluguelIndefinido = false;
 let patFilters   = { patCliente: new Set(), patUnidade: new Set(), patCategoria: new Set(), patEquipamento: new Set(), patRegiao: new Set() };
 let patAllValues = { patCliente: [], patUnidade: [], patCategoria: [], patEquipamento: [], patRegiao: [] };
 let patSearchQueries = { patCliente: '', patUnidade: '', patCategoria: '', patEquipamento: '', patRegiao: '' };
@@ -1864,6 +1886,21 @@ function recalcResultados(data) {
 function setResultFilter(v) {
   resultFilter = v || 'all';
   if (typeof drawTable === 'function') drawTable();
+}
+/* Alterna se os equipamentos com "?" na coluna ALUGUEL/LOCAÇÃO R$ (aba
+   "Patrimônio aferido") entram no volume de equipamentos usado pelo rateio
+   de Despesas Administrativas. Reconstrói patrimonioCountByClient a partir
+   de patrimonioRaw (já carregado) e recalcula todo o dashboard — mesmo
+   caminho usado pelos demais filtros/parâmetros (ver requestDashboardRefresh
+   / recomputeAdminTotal, chamado dentro de renderDashboard). */
+function setAluguelIndefinidoFilter(v) {
+  incluirEquipAluguelIndefinido = (v === 'incluir');
+  if (!rawData.length) return;
+  patrimonioCountByClient = buildPatrimonioCountByClient(patrimonioRaw, incluirEquipAluguelIndefinido);
+  requestDashboardRefresh({
+    showLoader: true,
+    message: 'Recalculando rateio de despesas administrativas…'
+  });
 }
 function applyResultFilter(rows) {
   if (resultFilter === 'pos') return rows.filter(r => (r.resAj || 0) >= 0);
@@ -2342,7 +2379,7 @@ function handleFile(file) {
       updateImportOverlay('Extraindo Patrimônio Aferido…');
       setStatus('Extraindo Patrimônio Aferido…', 68);
       patrimonioRaw = processPatrimonio(wb);
-      patrimonioCountByClient = buildPatrimonioCountByClient(patrimonioRaw);
+      patrimonioCountByClient = buildPatrimonioCountByClient(patrimonioRaw, incluirEquipAluguelIndefinido);
       updateImportOverlay('Calculando resultados…');
       setStatus('Calculando resultados…', 75);
       rawData = data;
@@ -2814,6 +2851,13 @@ function processPatrimonio(wb) {
       const categoriaRaw = fk(r, 'CATEGORIA');
       const clienteRaw   = fk(r, 'CLIENTE');
       const unidadeRaw   = fk(r, 'UNIDADE');
+      // Coluna "ALUGUEL" (aliases: "LOCAÇÃO R$"/"LOCACAO R$"/"LOCAÇÃO"/
+      // "LOCACAO", conforme a grafia usada na planilha) — valor bruto,
+      // ANTES do toNum(), para permitir detectar o marcador "?" (equipamento
+      // sem valor de locação apurado). O valor numérico (locacao) continua
+      // calculado normalmente a partir do mesmo campo, preservando o KPI
+      // "Total Locação" e as demais telas do modal de Patrimônio.
+      const aluguelRaw = fk(r, 'ALUGUEL', 'LOCAÇÃO R$', 'LOCACAO R$', 'LOCAÇÃO', 'LOCACAO');
       return {
         regiao:      (fk(r, 'REGIÃO', 'REGIAO') || '').toString().trim(),
         categoria:   categoriaRaw ? String(categoriaRaw).trim() : '',
@@ -2827,7 +2871,12 @@ function processPatrimonio(wb) {
         cliente:     clienteRaw ? String(clienteRaw).trim() : '',
         prevAtual:   toDate(fk(r, 'PREV. ATUAL', 'PREV ATUAL')),
         prox:        toDate(fk(r, 'PRÓX.', 'PROX.', 'PRÓX', 'PROX')),
-        locacao:     toNum(fk(r, 'LOCAÇÃO R$', 'LOCACAO R$', 'LOCAÇÃO', 'LOCACAO')),
+        locacao:     toNum(aluguelRaw),
+        // true quando a coluna ALUGUEL contém o caractere "?" (equipamento
+        // sem valor de locação definido) — usado exclusivamente para
+        // incluir/excluir este equipamento do volume que compõe o rateio
+        // de Despesas Administrativas (ver buildPatrimonioCountByClient).
+        aluguelIndefinido: /\?/.test(String(aluguelRaw ?? '')),
       };
     })
     .filter(r => r.categoria && !PAT_EXCLUDED_CATEGORIAS.has(norm(r.categoria)))
@@ -2840,10 +2889,18 @@ function processPatrimonio(wb) {
    aplicada ao CLIENTE das demais abas (Faturamento/Receitas/Inadimplência/
    Vendas/Aluguéis), garantindo que o total bata com o cliente exibido no
    ranking principal mesmo quando a grafia varia entre abas. Cada linha da
-   aba de Patrimônio representa um equipamento, então a contagem é simples. */
-function buildPatrimonioCountByClient(rows) {
+   aba de Patrimônio representa um equipamento, então a contagem é simples.
+   Quando incluirAluguelIndefinido = false (padrão — ver
+   incluirEquipAluguelIndefinido), os equipamentos marcados com "?" na
+   coluna ALUGUEL/LOCAÇÃO R$ (r.aluguelIndefinido) são descartados dessa
+   contagem e, portanto, não entram no volume de equipamentos do rateio de
+   Despesas Administrativas (refEquip/patrimonioCountByClient em
+   recomputeAdminTotal/adjRow). Isso NÃO afeta patrimonioRaw nem a
+   listagem/KPIs do modal "Métricas de Patrimônio Aferido". */
+function buildPatrimonioCountByClient(rows, incluirAluguelIndefinido = true) {
   const map = {};
   (rows || []).forEach(r => {
+    if (!incluirAluguelIndefinido && r.aluguelIndefinido) return;
     const k = norm(r.cliente);
     if (!k) return;
     map[k] = (map[k] || 0) + 1;
@@ -3704,6 +3761,10 @@ function resetDashboard() {
   document.getElementById('upload-screen').style.display = 'flex';
   document.getElementById('dashboard').style.display = 'none';
   rawData = []; despesasRaw = []; patrimonioRaw = []; patrimonioSheetFound = false;
+  patrimonioCountByClient = {};
+  incluirEquipAluguelIndefinido = false;
+  const selAluguelIndefinido = document.getElementById('select-aluguel-indefinido');
+  if (selAluguelIndefinido) selAluguelIndefinido.value = 'excluir';
   filters = { empresa:new Set(), ano:new Set(), mes:new Set(), cliente:new Set(), categoria:new Set() };
   patFilters = { patCliente: new Set(), patUnidade: new Set(), patCategoria: new Set(), patEquipamento: new Set(), patRegiao: new Set() };
   patDateFrom = null; patDateTo = null;
