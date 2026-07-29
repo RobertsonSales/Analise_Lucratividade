@@ -1826,15 +1826,15 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
 
         <div class="client-card" style="margin-top:1rem">
           <div class="client-card-title">
-            <h4>Equipamentos filtrados</h4>
+            <h4 id="pat-table-title">Equipamentos filtrados</h4>
             <span id="pat-table-count"></span>
           </div>
           <div style="overflow:auto;max-height:420px">
             <table class="client-detail-table" id="pat-table">
-              <thead>
+              <thead id="pat-table-thead">
                 <tr>
                   <th>Cliente</th><th>Unidade</th><th>Categoria</th><th>Equipamento</th>
-                  <th>Serial</th><th>Região</th><th>Instalação</th><th>Próx. Manutenção</th><th class="num">Locação R$</th>
+                  <th>Serial</th><th>Setor</th><th>Região</th><th>Instalação</th><th>Prev. Atual</th><th>Próx. Manutenção</th><th class="num">Locação R$</th>
                   <th class="num" title="Quantidade total de equipamentos deste Cliente/Unidade dentro do filtro atual">Total no Cliente/Unidade</th>
                 </tr>
               </thead>
@@ -3610,6 +3610,47 @@ function patBuildBreakdown(rows, field) {
     </div>`).join('');
 }
 
+/* REQ-PATRIMONIO-UNIDADES: quando o filtro de Cliente está ativamente
+   restrito (algum cliente específico selecionado, mas não "todos") e o
+   recorte filtrado ainda abrange mais de uma Unidade, o quadro
+   "Equipamentos filtrados" volta a listar as UNIDADES vinculadas a
+   esse(s) cliente(s) — uma linha por combinação Cliente/Unidade — em vez
+   de listar cada equipamento individualmente (visão padrão restaurada,
+   mais amigável para navegar). O detalhe completo de cada equipamento
+   (mesmas colunas do modal aberto pelo ícone 🔎 — Categoria, Equipamento,
+   Serial, Setor, Região, Instalação, Prev. Atual, Próx. Manutenção,
+   Locação R$) continua disponível a um clique, via openPatClienteDetalhes.
+   Quando o filtro já resolve para uma única Unidade (seja por seleção
+   explícita de Unidade, seja porque o cliente só possui uma), ou quando
+   nenhum cliente específico está filtrado (todos selecionados), a
+   listagem do quadro principal volta a ser por equipamento, como antes. */
+function patIsUnidadeAggMode(rows) {
+  const clienteFiltrado = patFilters.patCliente.size > 0 &&
+    patFilters.patCliente.size < patAllValues.patCliente.length;
+  if (!clienteFiltrado) return false;
+  const unidadesNoFiltro = new Set(rows.map(patClienteUnidadeKey)).size;
+  return unidadesNoFiltro > 1;
+}
+
+function patBuildUnidadeAggRows(rows) {
+  const map = {};
+  rows.forEach(r => {
+    const key = patClienteUnidadeKey(r);
+    if (!map[key]) {
+      map[key] = {
+        cliente: r.cliente, unidade: r.unidade,
+        equipCount: 0, categorias: new Set(), regioes: new Set(), totalLocacao: 0
+      };
+    }
+    map[key].equipCount += 1;
+    if (r.categoria) map[key].categorias.add(r.categoria);
+    if (r.regiao) map[key].regioes.add(r.regiao);
+    map[key].totalLocacao += (r.locacao || 0);
+  });
+  return Object.values(map).sort((a, b) =>
+    (a.cliente || '').localeCompare(b.cliente || '') || (a.unidade || '').localeCompare(b.unidade || ''));
+}
+
 function renderPatrimonioModal() {
   if (!patrimonioSheetFound) return;
   const rows = getFilteredPatrimonio();
@@ -3636,9 +3677,84 @@ function renderPatrimonioModal() {
   const regEl = document.getElementById('pat-breakdown-regiao');
   if (regEl) regEl.innerHTML = patBuildBreakdown(rows, 'regiao');
 
-  const tbody = document.getElementById('pat-table-body');
+  const tbody   = document.getElementById('pat-table-body');
+  const theadEl = document.getElementById('pat-table-thead');
+  const titleEl = document.getElementById('pat-table-title');
   if (tbody) {
     const MAX_ROWS = 500;
+    // Guarda o recorte filtrado atual para o modal de detalhes por
+    // Cliente/Unidade (openPatClienteDetalhes) reaproveitar sem precisar
+    // recalcular os filtros — o detalhe mostrado reflete o mesmo universo
+    // já exibido no quadro "Equipamentos filtrados"/"Unidades filtradas".
+    patLastFilteredRows = rows;
+
+    if (patIsUnidadeAggMode(rows)) {
+      // ── Modo agregado por Unidade (visão padrão — ver patIsUnidadeAggMode) ──
+      if (titleEl) titleEl.textContent = 'Unidades filtradas';
+      if (theadEl) {
+        theadEl.innerHTML = `
+          <tr>
+            <th>Cliente</th><th>Unidade</th>
+            <th class="num">Categorias</th>
+            <th class="num" title="Quantidade de equipamentos desta Unidade dentro do filtro atual">Equipamentos</th>
+            <th>Região</th>
+            <th class="num">Locação R$</th>
+          </tr>`;
+      }
+      const agg = patBuildUnidadeAggRows(rows);
+      // Reaproveita patTotalsByClienteUnidade (usado também por outras
+      // partes do módulo) para manter a contagem de equipamentos por
+      // Cliente/Unidade coerente com o recorte atual.
+      patTotalsByClienteUnidade = {};
+      agg.forEach(u => { patTotalsByClienteUnidade[patClienteUnidadeKey(u)] = u.equipCount; });
+
+      tbody.innerHTML = agg.slice(0, MAX_ROWS).map(u => {
+        const regioes = [...u.regioes];
+        const regiaoLabel = regioes.length === 0 ? '—'
+          : regioes.length === 1 ? regioes[0]
+          : `${regioes.length} regiões`;
+        return `
+        <tr>
+          <td>
+            <div class="pat-client-cell">
+              <span class="pat-client-name" title="${escapeHtml(u.cliente)}">${escapeHtml(u.cliente)}</span>
+            </div>
+          </td>
+          <td>
+            <div class="pat-client-cell">
+              <span class="pat-client-name" title="${escapeHtml(u.unidade)}">${escapeHtml(u.unidade)}</span>
+              <button type="button" class="pat-client-detail-btn" data-cliente="${escapeHtml(u.cliente)}" data-unidade="${escapeHtml(u.unidade)}" title="Ver equipamentos desta unidade">🔎</button>
+            </div>
+          </td>
+          <td class="num">${u.categorias.size.toLocaleString('pt-BR')}</td>
+          <td class="num">${u.equipCount.toLocaleString('pt-BR')}</td>
+          <td title="${escapeHtml(regioes.join(', '))}">${escapeHtml(regiaoLabel)}</td>
+          <td class="num">${u.totalLocacao ? fmtR(u.totalLocacao) : '—'}</td>
+        </tr>`;
+      }).join('');
+
+      const countEl = document.getElementById('pat-table-count');
+      if (countEl) {
+        countEl.textContent = agg.length > MAX_ROWS
+          ? `${agg.length.toLocaleString('pt-BR')} unidades (exibindo as primeiras ${MAX_ROWS})`
+          : `${agg.length.toLocaleString('pt-BR')} unidade(s)`;
+      }
+      return;
+    }
+
+    // ── Modo padrão: listagem por equipamento (ver patIsUnidadeAggMode) —
+    // colunas espelham o mesmo detalhe do modal aberto pelo ícone 🔎
+    // (openPatClienteDetalhes): Categoria, Equipamento, Serial, Setor,
+    // Região, Instalação, Prev. Atual, Próx. Manutenção, Locação R$. ──
+    if (titleEl) titleEl.textContent = 'Equipamentos filtrados';
+    if (theadEl) {
+      theadEl.innerHTML = `
+        <tr>
+          <th>Cliente</th><th>Unidade</th><th>Categoria</th><th>Equipamento</th>
+          <th>Serial</th><th>Setor</th><th>Região</th><th>Instalação</th><th>Prev. Atual</th><th>Próx. Manutenção</th><th class="num">Locação R$</th>
+          <th class="num" title="Quantidade total de equipamentos deste Cliente/Unidade dentro do filtro atual">Total no Cliente/Unidade</th>
+        </tr>`;
+    }
     const sorted = [...rows].sort((a, b) =>
       (a.cliente || '').localeCompare(b.cliente || '') || (a.unidade || '').localeCompare(b.unidade || ''));
     // Totais por Cliente/Unidade (coluna totalizadora "Total no Cliente/
@@ -3653,11 +3769,6 @@ function renderPatrimonioModal() {
       const k = patClienteUnidadeKey(r);
       patTotalsByClienteUnidade[k] = (patTotalsByClienteUnidade[k] || 0) + 1;
     });
-    // Guarda o recorte filtrado atual para o modal de detalhes por
-    // Cliente/Unidade (openPatClienteDetalhes) reaproveitar sem precisar
-    // recalcular os filtros — o detalhe mostrado reflete o mesmo universo
-    // já exibido no quadro "Equipamentos filtrados".
-    patLastFilteredRows = rows;
     tbody.innerHTML = sorted.slice(0, MAX_ROWS).map(r => {
       const key = patClienteUnidadeKey(r);
       const total = patTotalsByClienteUnidade[key] || 0;
@@ -3673,8 +3784,10 @@ function renderPatrimonioModal() {
         <td>${escapeHtml(r.categoria)}</td>
         <td>${escapeHtml(r.equipamento)}</td>
         <td>${escapeHtml(r.serial)}</td>
+        <td>${escapeHtml(r.setor)}</td>
         <td>${escapeHtml(r.regiao)}</td>
         <td>${r.instalacao ? r.instalacao.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
+        <td>${r.prevAtual instanceof Date ? r.prevAtual.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
         <td>${r.prox instanceof Date ? r.prox.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
         <td class="num">${r.locacao ? fmtR(r.locacao) : '—'}</td>
         <td class="pat-table-total-col">${total.toLocaleString('pt-BR')}</td>
@@ -6277,23 +6390,70 @@ function exportPatrimonioPDF() {
     rows.forEach(r => { const k = r.regiao || '—'; map[k] = (map[k] || 0) + 1; });
     return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 10);
   })();
+  // Volume de equipamentos por Unidade vinculada ao cliente — mesma
+  // combinação Cliente+Unidade usada na coluna "Total no Cliente/Unidade"
+  // da tabela detalhada (patClienteUnidadeKey), exibida aqui como card
+  // resumo (Top 10) na primeira página do PDF.
+  const unidadeBreakdown = (() => {
+    const map = {};
+    rows.forEach(r => {
+      const key = patClienteUnidadeKey(r);
+      if (!map[key]) map[key] = { label: `${r.cliente || '—'} — ${r.unidade || '—'}`, count: 0 };
+      map[key].count++;
+    });
+    return Object.values(map)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10)
+      .map(u => [u.label, u.count]);
+  })();
   const breakdownRows = (entries) => entries.map(([label, count], i) => `
     <tr class="${i % 2 === 0 ? 'even' : ''}"><td>${escapeHtml(label)}</td><td class="r">${count.toLocaleString('pt-BR')}</td></tr>`).join('');
 
+  /* Diferente da tela (ver patIsUnidadeAggMode/renderPatrimonioModal, que
+     resume em "Unidades filtradas" quando o cliente filtrado abrange mais
+     de uma Unidade — visão rápida e amigável para navegação), o PDF é um
+     documento para consulta/arquivo e por isso sempre traz a lista
+     completa de equipamentos, agrupada por Unidade vinculada ao cliente,
+     com o mesmo nível de detalhe do modal aberto pelo ícone 🔎
+     (openPatClienteDetalhes): Categoria, Equipamento, Serial, Setor,
+     Região, Instalação, Prev. Atual, Próx. Manutenção e Locação R$ —
+     independente do modo (agregado ou não) exibido na tela no momento da
+     exportação. */
   const sorted = [...rows].sort((a, b) =>
     (a.cliente || '').localeCompare(b.cliente || '') || (a.unidade || '').localeCompare(b.unidade || ''));
-  const tableRows = sorted.map((r, i) => `
+  // Totais por Cliente/Unidade — mesma lógica de patTotalsByClienteUnidade
+  // usada na tela, para que a coluna "Total no Cliente/Unidade" do PDF
+  // bata com a exibida no quadro "Equipamentos filtrados".
+  const patPdfTotaisPorClienteUnidade = {};
+  rows.forEach(r => {
+    const k = patClienteUnidadeKey(r);
+    patPdfTotaisPorClienteUnidade[k] = (patPdfTotaisPorClienteUnidade[k] || 0) + 1;
+  });
+  const patPdfTitle = 'Equipamentos filtrados';
+  const patPdfCount = sorted.length;
+  const patPdfThead = `
+    <th>Cliente</th><th>Unidade</th><th>Categoria</th><th>Equipamento</th>
+    <th>Serial</th><th>Setor</th><th>Região</th><th class="c">Instalação</th><th class="c">Prev. Atual</th><th class="c">Próx. Manutenção</th><th class="r">Locação R$</th>
+    <th class="r" title="Quantidade total de equipamentos deste Cliente/Unidade dentro do filtro atual">Total no Cliente/Unidade</th>`;
+  const patPdfBody = sorted.map((r, i) => {
+    const key = patClienteUnidadeKey(r);
+    const total = patPdfTotaisPorClienteUnidade[key] || 0;
+    return `
     <tr class="${i % 2 === 0 ? 'even' : ''}">
       <td>${escapeHtml(r.cliente)}</td>
       <td>${escapeHtml(r.unidade)}</td>
       <td>${escapeHtml(r.categoria)}</td>
       <td>${escapeHtml(r.equipamento)}</td>
       <td>${escapeHtml(r.serial)}</td>
+      <td>${escapeHtml(r.setor)}</td>
       <td>${escapeHtml(r.regiao)}</td>
       <td class="c">${r.instalacao ? r.instalacao.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
+      <td class="c">${r.prevAtual instanceof Date ? r.prevAtual.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
       <td class="c">${r.prox instanceof Date ? r.prox.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
       <td class="r">${r.locacao ? fmtR(r.locacao) : '—'}</td>
-    </tr>`).join('');
+      <td class="r">${total.toLocaleString('pt-BR')}</td>
+    </tr>`;
+  }).join('');
 
   const html = `<!DOCTYPE html><html lang="pt-BR"><head>
   <meta charset="UTF-8">
@@ -6320,6 +6480,7 @@ function exportPatrimonioPDF() {
     td.r { text-align:right; font-variant-numeric:tabular-nums; }
     td.c { text-align:center; }
     .two-col { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:12px; }
+    .two-col.three-col { grid-template-columns:1fr 1fr 1fr; }
     .footer { border-top:1px solid #E2E8F0; padding-top:6px; margin-top:10px; display:flex; justify-content:space-between; font-size:6.5pt; color:#94A3B8; }
     .page-break { page-break-before:always; padding-top:10px; }
     tr { page-break-inside: avoid; break-inside: avoid; }
@@ -6370,7 +6531,7 @@ function exportPatrimonioPDF() {
   <div class="kpi"><div class="kpi-label">Total Locação</div><div class="kpi-val">${fmtR(totalLocacao)}</div></div>
 </div>
 
-<div class="two-col">
+<div class="two-col three-col">
   <div>
     <div class="section-title">Equipamentos por Categoria — Top 10</div>
     <table>
@@ -6385,16 +6546,20 @@ function exportPatrimonioPDF() {
       <tbody>${breakdownRows(regBreakdown)}</tbody>
     </table>
   </div>
+  <div>
+    <div class="section-title">Equipamentos por Unidade — Top 10</div>
+    <table>
+      <thead><tr><th>Cliente — Unidade</th><th class="r">Qtd.</th></tr></thead>
+      <tbody>${breakdownRows(unidadeBreakdown)}</tbody>
+    </table>
+  </div>
 </div>
 
 <div class="page-break">
-  <div class="section-title">Equipamentos filtrados (${sorted.length.toLocaleString('pt-BR')} registro(s))</div>
+  <div class="section-title">${patPdfTitle} (${patPdfCount.toLocaleString('pt-BR')} registro(s))</div>
   <table>
-    <thead><tr>
-      <th>Cliente</th><th>Unidade</th><th>Categoria</th><th>Equipamento</th>
-      <th>Serial</th><th>Região</th><th class="c">Instalação</th><th class="c">Próx. Manutenção</th><th class="r">Locação R$</th>
-    </tr></thead>
-    <tbody>${tableRows}</tbody>
+    <thead><tr>${patPdfThead}</tr></thead>
+    <tbody>${patPdfBody}</tbody>
   </table>
 </div>
 
