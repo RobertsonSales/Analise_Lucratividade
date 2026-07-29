@@ -1020,13 +1020,20 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
    Mesma estrutura visual usada no relatório em PDF (buildClientReportHTML):
    grade de cartões por categoria, cada um com uma mini-tabela de
    equipamentos e quantidade — para que a tela e o PDF fiquem idênticos. */
-.equip-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: .75rem; margin-top: .3rem; }
-.equip-card { border:1px solid var(--border); border-radius: 14px; padding: .7rem .85rem .5rem; background: rgba(15,23,42,.55); }
-.equip-card-title { display:flex; justify-content:space-between; gap:.5rem; font-weight:700; font-size:.82rem; color:var(--text); padding-bottom:.4rem; margin-bottom:.35rem; border-bottom:1px solid var(--border); }
-.equip-mini { width:100%; border-collapse:collapse; font-size:.8rem; }
-.equip-mini td { padding:.32rem .15rem; border-bottom:1px dashed var(--border); color:var(--text); }
+.equip-grid { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: .6rem; margin-top: .3rem; }
+.equip-card { border:1px solid var(--border); border-radius: 14px; padding: .6rem .7rem .45rem; background: rgba(15,23,42,.55); }
+.equip-card-title { display:flex; justify-content:space-between; gap:.5rem; font-weight:700; font-size:.8rem; color:var(--text); padding-bottom:.35rem; margin-bottom:.3rem; border-bottom:1px solid var(--border); }
+.equip-mini { width:100%; border-collapse:collapse; font-size:.72rem; table-layout:fixed; }
+.equip-mini th { padding:.2rem .15rem .3rem; text-align:left; font-size:.64rem; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); font-weight:600; border-bottom:1px solid var(--border); }
+.equip-mini th.num { text-align:right; }
+.equip-mini td { padding:.3rem .15rem; border-bottom:1px dashed var(--border); color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .equip-mini tr:last-child td { border-bottom:none; }
 .equip-mini td.num { text-align:right; color:var(--muted); font-variant-numeric: tabular-nums; }
+.equip-mini td.unit { color:var(--muted); font-size:.68rem; }
+.equip-mini td.date { color:var(--muted); font-size:.68rem; font-variant-numeric: tabular-nums; }
+@media (max-width: 1100px) {
+  .equip-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
 @media (max-width: 760px) {
   .equip-grid { grid-template-columns: 1fr; }
 }
@@ -5085,18 +5092,26 @@ function buildClientEquipmentGroups(clientKey) {
   const catMap = {};
   rows.forEach(r => {
     const categoria = r.categoria || '—';
-    if (!catMap[categoria]) catMap[categoria] = { categoria, total: 0, equipMap: {} };
+    if (!catMap[categoria]) catMap[categoria] = { categoria, total: 0, itemMap: {} };
     catMap[categoria].total++;
     const equipamento = r.equipamento || '—';
-    catMap[categoria].equipMap[equipamento] = (catMap[categoria].equipMap[equipamento] || 0) + 1;
+    const unidade = r.unidade || '—';
+    const instalacao = r.instalacao instanceof Date ? r.instalacao : null;
+    // Chave de agrupamento inclui Unidade e Instalação — um mesmo modelo
+    // de equipamento pode estar instalado em unidades e datas diferentes
+    // do mesmo cliente, e cada combinação vira sua própria linha.
+    const key = `${equipamento}␟${unidade}␟${instalacao ? instalacao.getTime() : ''}`;
+    if (!catMap[categoria].itemMap[key]) {
+      catMap[categoria].itemMap[key] = { nome: equipamento, unidade, instalacao, qtd: 0 };
+    }
+    catMap[categoria].itemMap[key].qtd++;
   });
   return Object.values(catMap)
     .map(c => ({
       categoria: c.categoria,
       total: c.total,
-      equipamentos: Object.entries(c.equipMap)
-        .map(([nome, qtd]) => ({ nome, qtd }))
-        .sort((a, b) => b.qtd - a.qtd || a.nome.localeCompare(b.nome))
+      equipamentos: Object.values(c.itemMap)
+        .sort((a, b) => b.qtd - a.qtd || a.nome.localeCompare(b.nome) || a.unidade.localeCompare(b.unidade))
     }))
     .sort((a, b) => b.total - a.total || a.categoria.localeCompare(b.categoria));
 }
@@ -5114,10 +5129,18 @@ function buildClientEquipmentListHTML(clientKey) {
     <div class="equip-card">
       <div class="equip-card-title"><span>${escapeHtml(g.categoria)}</span><span>${g.total.toLocaleString('pt-BR')}</span></div>
       <table class="equip-mini">
-        <colgroup><col><col style="width:56px"></colgroup>
+        <colgroup><col style="width:30%"><col><col style="width:72px"><col style="width:24px"></colgroup>
+        <thead>
+          <tr><th>Equipamento</th><th>Unidade</th><th>Instalação</th><th class="num">Qtd</th></tr>
+        </thead>
         <tbody>
           ${g.equipamentos.map(e => `
-          <tr><td>${escapeHtml(e.nome)}</td><td class="num">${e.qtd.toLocaleString('pt-BR')}</td></tr>`).join('')}
+          <tr>
+            <td>${escapeHtml(e.nome)}</td>
+            <td class="unit" title="${escapeHtml(e.unidade)}">${escapeHtml(e.unidade)}</td>
+            <td class="date">${e.instalacao ? e.instalacao.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
+            <td class="num">${e.qtd.toLocaleString('pt-BR')}</td>
+          </tr>`).join('')}
         </tbody>
       </table>
     </div>`).join('');
@@ -5412,10 +5435,18 @@ function buildClientReportHTML(detail) {
     <div class="equip-card">
       <div class="equip-card-title"><span>${escapeHtml(g.categoria)}</span><span>${g.total.toLocaleString('pt-BR')}</span></div>
       <table class="equip-mini">
-        <colgroup><col><col style="width:34px"></colgroup>
+        <colgroup><col style="width:28%"><col><col style="width:58px"><col style="width:18px"></colgroup>
+        <thead>
+          <tr><th>Equipamento</th><th>Unidade</th><th>Instal.</th><th class="r">Qtd</th></tr>
+        </thead>
         <tbody>
           ${g.equipamentos.map(e => `
-          <tr><td>${escapeHtml(e.nome)}</td><td class="r">${e.qtd.toLocaleString('pt-BR')}</td></tr>`).join('')}
+          <tr>
+            <td>${escapeHtml(e.nome)}</td>
+            <td>${escapeHtml(e.unidade)}</td>
+            <td>${e.instalacao ? e.instalacao.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
+            <td class="r">${e.qtd.toLocaleString('pt-BR')}</td>
+          </tr>`).join('')}
         </tbody>
       </table>
     </div>`).join('');
@@ -5468,11 +5499,13 @@ function buildClientReportHTML(detail) {
     tbody tr.even td { background:#F8FAFC; }
     td.r, th.r { text-align:right; font-variant-numeric: tabular-nums; }
     tr.totals-row td { background:#EFF6FF; border-top:2px solid #93C5FD; font-weight:800; }
-    .equip-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin-top: 10px; }
-    .equip-card { border:1px solid #E2E8F0; border-radius: 10px; padding: 7px 10px 4px; break-inside: avoid; page-break-inside: avoid; }
-    .equip-card-title { display:flex; justify-content:space-between; gap:8px; font-weight:800; font-size:10px; color:#0F172A; padding-bottom:4px; margin-bottom:2px; border-bottom:1px solid #E2E8F0; }
-    .equip-mini { width:100%; border-collapse:collapse; table-layout:auto; font-size:9.5px; }
-    .equip-mini td { padding:3px 2px; border-bottom:1px dashed #E2E8F0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .equip-grid { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px 10px; margin-top: 10px; }
+    .equip-card { border:1px solid #E2E8F0; border-radius: 10px; padding: 6px 8px 3px; break-inside: avoid; page-break-inside: avoid; }
+    .equip-card-title { display:flex; justify-content:space-between; gap:8px; font-weight:800; font-size:9.5px; color:#0F172A; padding-bottom:3px; margin-bottom:2px; border-bottom:1px solid #E2E8F0; }
+    .equip-mini { width:100%; border-collapse:collapse; table-layout:fixed; font-size:8px; }
+    .equip-mini th { padding:2px 2px 3px; text-align:left; font-size:7px; text-transform:uppercase; letter-spacing:.02em; color:#64748B; font-weight:700; border-bottom:1px solid #E2E8F0; }
+    .equip-mini th.r { text-align:right; }
+    .equip-mini td { padding:2.5px 2px; border-bottom:1px dashed #E2E8F0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .equip-mini tr:last-child td { border-bottom:none; }
     .equip-mini td.r { text-align:right; color:#334155; font-variant-numeric: tabular-nums; }
     .footer { display:flex; justify-content:space-between; gap:12px; margin-top:16px; padding-top:10px; border-top:1px solid #E2E8F0; font-size:10px; color:#64748B; }
@@ -5826,6 +5859,40 @@ function exportXLSX() {
   ];
   const wsDet = XLSX.utils.aoa_to_sheet(detRows);
   XLSX.utils.book_append_sheet(wb, wsDet, 'Dados Detalhados');
+
+  // ── Sheet 5: Equipamentos do Cliente
+  // Mesmo agrupamento (Categoria → Equipamento/Unidade/Instalação) exibido
+  // no quadro "Equipamentos do cliente" da tela e do PDF (ver
+  // buildClientEquipmentGroups), uma linha por combinação, para cada
+  // cliente do ranking atualmente filtrado.
+  const equipRows = [
+    ['#','Empresa','Cliente','Categoria','Equipamento','Unidade','Instalação','Quantidade'],
+  ];
+  clientAggFiltered.forEach((r, i) => {
+    const groups = buildClientEquipmentGroups(r.clientKey);
+    groups.forEach(g => {
+      g.equipamentos.forEach(e => {
+        equipRows.push([
+          i + 1, r.emp, r.name, g.categoria, e.nome, e.unidade,
+          e.instalacao ? e.instalacao.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '',
+          e.qtd
+        ]);
+      });
+    });
+  });
+  const wsEquip = XLSX.utils.aoa_to_sheet(equipRows);
+  XLSX.utils.book_append_sheet(wb, wsEquip, 'Equipamentos do Cliente');
+  // Coluna "Quantidade" é contagem inteira, não monetária.
+  {
+    const range = XLSX.utils.decode_range(wsEquip['!ref']||'A1');
+    const qtdCol = equipRows[0].indexOf('Quantidade');
+    if (qtdCol >= 0) {
+      for (let R=1; R<=range.e.r; R++) {
+        const addr = XLSX.utils.encode_cell({r:R,c:qtdCol});
+        if (wsEquip[addr] && typeof wsEquip[addr].v === 'number') wsEquip[addr].z = '#,##0';
+      }
+    }
+  }
 
   // Format number columns
   const fmtNum = '#,##0.00';
