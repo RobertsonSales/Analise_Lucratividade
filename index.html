@@ -3171,7 +3171,7 @@ function refreshClienteOptions(query) {
       : val;
     div.innerHTML = `
       <input type="checkbox" ${isChecked?'checked':''} data-id="cliente" data-val="${val.replace(/"/g,'&quot;')}"
-        onchange="toggleFilter('cliente','${val.replace(/'/g,"\\'").replace(/\\/g,'\\\\')}',this.checked)">
+        onchange="toggleFilter('cliente','${val.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}',this.checked)">
       <span class="opt-label">${label}</span>
       <span class="opt-count">${count}</span>
     `;
@@ -4715,7 +4715,7 @@ function drawTable() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="text-align:center">
-        <button class="client-action-btn" onclick="event.stopPropagation(); openClientModal('${encodeURIComponent(r.clientKey)}','${encodeURIComponent(r.emp)}')">
+        <button class="client-action-btn" onclick="event.stopPropagation(); openClientModal('${encodeURIComponent(r.clientKey).replace(/'/g,'%27')}','${encodeURIComponent(r.emp).replace(/'/g,'%27')}')">
           <span class="icon">👁️</span>
           <span>Ver</span>
         </button>
