@@ -1481,6 +1481,17 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
       <span class="param-caption">Equipamentos com <strong>“?”</strong> na coluna Aluguel/Locação da aba <strong>Patrimônio aferido</strong> — controla se entram no volume de equipamentos do rateio de Despesas Adm.</span>
     </div>
 
+    <div class="param-group" id="aluguel-faturamento-filter-group">
+      <div class="param-field" style="min-width:240px">
+        <label for="select-aluguel-faturamento">Aluguéis no Faturamento</label>
+        <select id="select-aluguel-faturamento" onchange="setAluguelNoFaturamento(this.value)" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.55);color:inherit;font-weight:600;cursor:pointer">
+          <option value="excluir" selected>Não incluir</option>
+          <option value="incluir">Incluir no faturamento</option>
+        </select>
+      </div>
+      <span class="param-caption">Inclui (ou não) a <strong>Receita de Aluguéis</strong> no Faturamento‑Base de cada cliente — reflete em Impostos, rateio de Despesas Adm. e Margens Bruta/Líquida.</span>
+    </div>
+
     <div class="param-group" id="patrimonio-metrics-group">
       <div class="param-field" style="min-width:220px">
         <button type="button" class="btn-clear-all" id="btn-open-patrimonio" onclick="openPatrimonioModal()" style="width:100%;justify-content:center;color:var(--accent2);border-color:rgba(96,165,250,.35)">
@@ -1938,20 +1949,64 @@ let patLastFilteredRows = [];       // último `rows` (filtrado) renderizado em 
 let patClienteDetalheRows    = [];
 let patClienteDetalheCliente = '';
 let patClienteDetalheUnidade = '';
+/* Controla se a Receita de Aluguéis (aba "Aluguéis") entra na composição do
+   Faturamento-Base de cada cliente/linha — e, por consequência, em tudo que
+   deriva dele: Impostos, rateio de Despesas Administrativas e margens
+   Bruta/Líquida. Default = false (NÃO incluir), preservando o comportamento
+   histórico do dashboard. Alternável pelo seletor "Aluguéis no Faturamento"
+   (mesma linha dos demais seletores da barra "Base do Rateio") — ver
+   setAluguelNoFaturamento(). */
+let incluirAlugueisNoFaturamento = false;
+
+/* Recalcula o campo "faturamento" (valor EFETIVO usado por todo o
+   dashboard — KPIs, gráficos, ranking, tabela, exportações, rateio de
+   Despesas Adm. e cálculo de Impostos/Margens) a partir de
+   "faturamentoBase" (valor puro e imutável da aba "Faturamento",
+   competência = VENCIMENTO), somando a Receita de Aluguéis (r.alugueis)
+   de cada linha SOMENTE quando incluirAlugueisNoFaturamento = true.
+   Precisa rodar SEMPRE antes de recalcResultados(), pois o Resultado
+   (Margem Bruta) é Faturamento − Insumos e depende do valor já ajustado. */
+function recalcFaturamentoEfetivo(data) {
+  data.forEach(r => {
+    r.faturamento = (r.faturamentoBase || 0) + (incluirAlugueisNoFaturamento ? (r.alugueis || 0) : 0);
+  });
+}
+
+/* Alterna se a Receita de Aluguéis entra no Faturamento-Base (e em tudo que
+   dele deriva). Recalcula faturamento efetivo + resultado de todo o
+   dataset e solicita atualização do dashboard — mesmo padrão já usado por
+   setAluguelIndefinidoFilter() para o seletor irmão "Equip. sem Locação". */
+function setAluguelNoFaturamento(v) {
+  incluirAlugueisNoFaturamento = (v === 'incluir');
+  if (!rawData.length) return;
+  recalcFaturamentoEfetivo(rawData);
+  recalcResultados(rawData);
+  requestDashboardRefresh({
+    showLoader: true,
+    message: 'Recalculando Faturamento, Impostos e rateio com Aluguéis…'
+  });
+}
+
 /* Recalcula o campo "resultado" de cada linha do dataset mestre.
    Como toda a cadeia (KPIs, gráficos, ranking, tabela e exportações) lê
    sempre "resultado" a partir de rawData/getFiltered(), um único recálculo
    aqui já propaga para o dashboard inteiro.
-   IMPORTANTE: "faturamento" (= Faturamento-Base) vem da aba "Faturamento"
-   (competência = VENCIMENTO) e é essa base que serve de referência para
+   IMPORTANTE: "faturamento" (= Faturamento-Base) tem como origem principal
+   a aba "Faturamento" (competência = VENCIMENTO) — esse valor puro fica
+   preservado em "faturamentoBase" — e é o valor EFETIVO (faturamentoBase
+   + Aluguéis, quando o seletor "Aluguéis no Faturamento" estiver em
+   "Incluir" — ver recalcFaturamentoEfetivo()) que serve de referência para
    Impostos, rateio de Despesas Administrativas e margens Bruta/Líquida.
    "receitas" (= Receita Liquidada, ver r.receitas / cards e colunas
    "Receita Liquidada") vem da aba "Receitas" (competência = LIQUIDAÇÃO) e é
    um indicador à parte — NÃO compõe nem influencia o Faturamento-Base ou o
-   Resultado. Tanto a Inadimplência quanto os Aluguéis também NÃO compõem
-   nem influenciam o Faturamento-Base ou o Resultado: são exibidos apenas
-   como parâmetros comparativos (percentual sobre o Faturamento-Base) em
-   seus próprios cards/colunas (r.inadimplencia e r.alugueis). */
+   Resultado. A Inadimplência também NÃO compõe nem influencia o
+   Faturamento-Base ou o Resultado: é exibida apenas como parâmetro
+   comparativo (percentual sobre o Faturamento-Base) em seu próprio
+   card/coluna (r.inadimplencia). Os Aluguéis (r.alugueis) seguem a mesma
+   regra SOMENTE quando incluirAlugueisNoFaturamento = false (padrão); com
+   o seletor em "Incluir", eles passam a compor o Faturamento-Base e,
+   portanto, o Resultado. */
 function recalcResultados(data) {
   data.forEach(r => {
     r.resultado = r.faturamento - r.vendas;
@@ -2458,8 +2513,11 @@ function handleFile(file) {
       setStatus('Calculando resultados…', 75);
       rawData = data;
       if (!rawData.length) throw new Error('Nenhum dado encontrado. Verifique se as abas Faturamento, Inadimplência, Vendas e Aluguéis existem e têm dados.');
-      // Garante que "resultado" (Faturamento-Base − Insumos) esteja
-      // calculado para todas as linhas do dataset recém-importado.
+      // Aplica o estado atual do seletor "Aluguéis no Faturamento" (padrão:
+      // não incluir) e só então garante que "resultado" (Faturamento
+      // efetivo − Insumos) esteja calculado para todas as linhas do
+      // dataset recém-importado.
+      recalcFaturamentoEfetivo(rawData);
       recalcResultados(rawData);
       // ✅ Correção: sem isto, o percentual inicial do campo (%) Impostos
       // (ex.: 18%) só entrava no cálculo depois que o usuário alterasse o
@@ -2857,24 +2915,28 @@ function processWorkbook(wb) {
   });
 
   return Object.values(agg).map(row => {
-    // Faturamento-Base do período (por cliente/empresa/ano/mês): vem da
-    //   aba "Faturamento" (competência = VENCIMENTO) — é a base que serve
-    //   de referência para Impostos, rateio de Despesas Administrativas e
-    //   margens Bruta/Líquida.
-    //   Nem Receita Liquidada (row.receitas, aba "Receitas"), nem
-    //   Inadimplência, nem Aluguéis compõem ou influenciam este total:
-    //   todos são apurados à parte e exibidos apenas como parâmetros
-    //   comparativos em relação ao Faturamento-Base, em seu próprio
-    //   card/coluna (row.receitas, row.inadimplencia e row.alugueis).
-    const faturamento = row.faturamento;
+    // faturamentoBase: valor PURO do período (por cliente/empresa/ano/mês),
+    //   vindo exclusivamente da aba "Faturamento" (competência =
+    //   VENCIMENTO). Nunca é reescrito depois — é a fonte imutável.
+    //   Receita Liquidada (row.receitas, aba "Receitas") e Inadimplência
+    //   nunca compõem nem influenciam este total: são apuradas à parte e
+    //   exibidas apenas como parâmetros comparativos em relação ao
+    //   Faturamento-Base, em seu próprio card/coluna. Os Aluguéis
+    //   (row.alugueis) só passam a compor o Faturamento-Base (via campo
+    //   "faturamento" efetivo) quando o seletor "Aluguéis no Faturamento"
+    //   estiver em "Incluir" — ver recalcFaturamentoEfetivo().
+    const faturamentoBase = row.faturamento;
     return {
       ...row,
       displayName: displayNames[row.cliente] || row.cliente,
-      faturamento,
-      // Valor inicial; imediatamente após processWorkbook(), handleFile()
-      // chama recalcResultados(rawData), que é a fonte única de verdade
-      // para "resultado" (Faturamento-Base − Insumos).
-      resultado: faturamento - row.vendas,
+      faturamentoBase,
+      // Valor inicial (= faturamentoBase); imediatamente após
+      // processWorkbook(), handleFile() chama recalcFaturamentoEfetivo()
+      // seguido de recalcResultados(rawData) — essas duas funções juntas
+      // são a fonte única de verdade para "faturamento" (efetivo) e
+      // "resultado" (Faturamento efetivo − Insumos).
+      faturamento: faturamentoBase,
+      resultado: faturamentoBase - row.vendas,
     };
   });
 }
@@ -4213,6 +4275,9 @@ function resetDashboard() {
   incluirEquipAluguelIndefinido = false;
   const selAluguelIndefinido = document.getElementById('select-aluguel-indefinido');
   if (selAluguelIndefinido) selAluguelIndefinido.value = 'excluir';
+  incluirAlugueisNoFaturamento = false;
+  const selAluguelFaturamento = document.getElementById('select-aluguel-faturamento');
+  if (selAluguelFaturamento) selAluguelFaturamento.value = 'excluir';
   filters = { empresa:new Set(), ano:new Set(), mes:new Set(), cliente:new Set(), categoria:new Set() };
   patFilters = { patCliente: new Set(), patUnidade: new Set(), patCategoria: new Set(), patEquipamento: new Set(), patRegiao: new Set() };
   patDateFrom = null; patDateTo = null;
@@ -4273,7 +4338,7 @@ function renderKPIs(data) {
       <span class="kpi-icon">📈</span>
       <div class="kpi-label">Faturamento-Base</div>
       <div class="kpi-value" style="font-size:${kpiFontSize(fmtR(fat))}">${fmtR(fat)}</div>
-      <div class="kpi-sub">${fat>0?fmtPct(1):'-'} do total consolidado</div>
+      <div class="kpi-sub">${fat>0?fmtPct(1):'-'} do total consolidado${incluirAlugueisNoFaturamento?' · inclui Aluguéis':''}</div>
     </div>
     <div class="kpi-card green fade-in fade-in-d1">
       <span class="kpi-icon">✅</span>
@@ -4291,7 +4356,7 @@ function renderKPIs(data) {
       <span class="kpi-icon">🏠</span>
       <div class="kpi-label">Receita de Aluguéis</div>
       <div class="kpi-value" style="font-size:${kpiFontSize(fmtR(alug))}">${fmtR(alug)}</div>
-      <div class="kpi-sub">${fat>0?fmtPct(alug/fat):'-'} do faturamento</div>
+      <div class="kpi-sub">${fat>0?fmtPct(alug/fat):'-'} do faturamento${incluirAlugueisNoFaturamento?' · já incluído no Faturamento-Base':' · não incluído no Faturamento-Base'}</div>
     </div>
     <div class="kpi-card amber fade-in fade-in-d3">
       <span class="kpi-icon">🧪</span>
