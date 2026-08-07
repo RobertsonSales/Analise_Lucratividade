@@ -1921,7 +1921,7 @@ let patrimonioCountByClient = {};
 const PAT_EXCLUDED_CATEGORIAS = new Set(['AUXILIAR', 'PERIFERICO']); // comparado após norm()
 // Controla se os equipamentos com "?" na coluna ALUGUEL/LOCAÇÃO R$ da aba
 // "Patrimônio aferido" entram no volume de equipamentos usado pelo rateio de
-// Despesas Administrativas (patrimonioCountByClient / refEquip / adjRow).
+// Despesas Administrativas (patrimonioCountByClient / refEquip / computeRowAdjustments).
 // Padrão: EXCLUÍDOS do rateio (esses equipamentos não têm valor de locação
 // apurado, então não representam esforço de assistência técnica confiável
 // para compor a base do rateio). O usuário pode alternar pelo seletor ao
@@ -2315,7 +2315,7 @@ function computeReferenceFaturamento() {
    (assistência técnica, manutenção etc.) — os dois fatores, em conjunto,
    equalizam a distribuição do rateio. Quando a aba "Patrimônio aferido"
    não está disponível (refEquip = 0), o cálculo cai automaticamente de
-   volta para 100% faturamento (ver adjRow/recomputeAdminTotal), como já
+   volta para 100% faturamento (ver computeRowAdjustments/recomputeAdminTotal), como já
    acontecia antes desta mudança. */
 const RATEIO_EQUIP_WEIGHT = 0.5;
 const RATEIO_FAT_WEIGHT   = 1 - RATEIO_EQUIP_WEIGHT;
@@ -2416,43 +2416,90 @@ function effectiveAdminTotal(filteredData) {
   return params.adminTotal || 0;
 }
 
-/* Retorna { impostos, adm, resultadoAjustado } para uma linha agregada.
-   O rateio das despesas administrativas usa SEMPRE os denominadores de
-   referência — faturamento e volume de equipamentos (aba "Patrimônio
-   aferido") do universo Empresa/Ano/Mês, sem filtro de cliente — e o
-   total BASE (bruto) de despesas administrativas. Assim, cada
-   cliente/linha carrega estritamente a sua fatia proporcional do bolo
-   administrativo, independentemente de quantos clientes estejam filtrados
-   — inclusive quando apenas um cliente está selecionado.
+/* ⚠️ [DESCONTINUADA] A antiga função adjRow(row, ...), que recalculava o
+   rateio (impostos + despesas administrativas) diretamente sobre uma linha
+   JÁ AGREGADA, foi removida. Ela causava dupla contagem do volume de
+   equipamentos aferidos sempre que a linha agregada representava um
+   cliente que fatura por mais de uma empresa do grupo (ex.: cliente com
+   receita na LABMEDIC e na DIAG RIO simultaneamente) — cada linha
+   cliente+empresa recebia 100% do volume de equipamentos do cliente,
+   inflando a Despesa Adm. atribuída e divergindo do card "Despesas
+   Administrativas" do topo do dashboard e do "Ranking por Cliente".
+   Ver computeRowAdjustments() logo abaixo, que substitui esta função:
+   calcula impostos/adm por CLIENTE ÚNICO (nunca por cliente+empresa) e
+   distribui o resultado pelas linhas de origem, garantindo que toda
+   agregação subsequente (cliente, cliente+empresa, empresa, mês) some
+   corretamente. */
 
-   A fatia de cada cliente combina duas proporções (RATEIO_FAT_WEIGHT /
-   RATEIO_EQUIP_WEIGHT, 50/50): sua participação no faturamento de
-   referência E sua participação no volume de equipamentos instalados de
-   referência — equipamentos representam esforço de assistência técnica,
-   um custo operacional relevante independente do faturamento do cliente.
-   A parcela de equipamentos só é aplicada quando a linha representa um
-   cliente único (row.clientKey) e há dados de Patrimônio disponíveis
-   (params.refEquip > 0); caso contrário (linhas agregadas por Empresa ou
-   por Mês, ou planilha sem a aba "Patrimônio aferido"), o cálculo cai de
-   volta para 100% faturamento — o mesmo comportamento de antes desta
-   mudança. */
-function adjRow(row, globalBase, admEffective) {
-  const rowBase   = (row.fat || 0);
-  const impostos  = rowBase * (params.taxPct / 100);
-  const admBase   = params.adminTotalBase || 0;
-  const refFat    = params.refFat || 0;
-  const refEquip  = params.refEquip || 0;
-  const fatShare  = refFat > 0 ? (rowBase / refFat) : 0;
-  let adm;
-  if (row.clientKey && refEquip > 0) {
-    const rowEquip   = patrimonioCountByClient[row.clientKey] || 0;
-    const equipShare = rowEquip / refEquip;
-    adm = admBase * (RATEIO_FAT_WEIGHT * fatShare + RATEIO_EQUIP_WEIGHT * equipShare);
-  } else {
-    adm = admBase * fatShare;
-  }
-  const resAjustado = (row.res || 0) - impostos - adm;
-  return { impostos, adm, resAjustado };
+/* ══════════════════════════════════════════════════════
+   CORREÇÃO — rateio de Despesas Adm. sem contagem duplicada
+   de equipamentos para clientes multiempresa
+══════════════════════════════════════════════════════
+   PROBLEMA IDENTIFICADO: adjRow() aplicava 100% do volume de
+   equipamentos aferidos do cliente (patrimonioCountByClient[row.clientKey])
+   a QUALQUER linha que tivesse um "clientKey" — inclusive linhas
+   agregadas por CLIENTE + EMPRESA (buildClientAgg, usada nas planilhas/PDF
+   exportados e no gráfico "Lucratividade por Cliente"). Um cliente que
+   fatura por mais de uma empresa do grupo (ex.: LABORATORIO BLESSING,
+   que fatura tanto por LABMEDIC quanto por DIAG RIO) gera DUAS linhas
+   nessas telas — e cada uma recebia o volume de equipamentos do cliente
+   POR INTEIRO, duplicando essa parcela do rateio. Isso inflava a
+   "Despesas Administrativas"/reduzia a "Margem Líquida" desses clientes
+   nas exportações e no gráfico, e fazia o total dessas telas divergir do
+   card "Despesas Administrativas" no topo do dashboard e do "Ranking por
+   Cliente" (que já era calculado corretamente, pois agrega por cliente
+   único, sem quebra por empresa).
+   Da mesma forma, linhas agregadas por EMPRESA (buildEmpresaAgg) ou por
+   MÊS (buildMonthlyAgg) não carregam "clientKey" nenhum — então caíam
+   sempre no rateio 100% faturamento (sem a parcela de equipamentos),
+   fazendo o total da tabela "Ranking por Empresa Emissora" (e das
+   planilhas de exportação por empresa/mês) também divergir do total do
+   card "Despesas Administrativas".
+
+   CORREÇÃO: calcular o rateio (impostos + despesas administrativas) UMA
+   ÚNICA VEZ por CLIENTE ÚNICO — nunca por combinação cliente+empresa — e
+   então distribuir esse total pelas linhas de origem (cada combinação
+   cliente+empresa+ano+mês do dataset filtrado) proporcionalmente ao
+   faturamento de cada linha. Como essa distribuição é proporcional e
+   linear, QUALQUER agregação obtida depois por soma simples dessas
+   colunas — por cliente, por cliente+empresa, por empresa, por mês, ou o
+   total geral — bate exatamente entre si e com os cards de KPI, eliminando
+   a dupla contagem e as divergências entre telas. */
+function computeRowAdjustments(data) {
+  const admBase  = params.adminTotalBase || 0;
+  const refFat   = params.refFat || 0;
+  const refEquip = params.refEquip || 0;
+
+  // 1) Faturamento total por CLIENTE ÚNICO dentro do cenário filtrado
+  //    (soma todas as empresas/meses em que o cliente aparece).
+  const fatByClient = {};
+  data.forEach(r => { fatByClient[r.cliente] = (fatByClient[r.cliente] || 0) + r.faturamento; });
+
+  // 2) Rateio de Despesas Adm. correto, UMA VEZ por cliente — mesma
+  //    fórmula (50% faturamento / 50% equipamentos) usada pelo card
+  //    "Despesas Administrativas" e por recomputeAdminTotal().
+  const admByClient = {};
+  Object.keys(fatByClient).forEach(cli => {
+    const rowBase  = fatByClient[cli];
+    const fatShare = refFat > 0 ? (rowBase / refFat) : 0;
+    if (refEquip > 0) {
+      const equipShare = (patrimonioCountByClient[cli] || 0) / refEquip;
+      admByClient[cli] = admBase * (RATEIO_FAT_WEIGHT * fatShare + RATEIO_EQUIP_WEIGHT * equipShare);
+    } else {
+      admByClient[cli] = admBase * fatShare;
+    }
+  });
+
+  // 3) Distribui o total de cada cliente pelas suas linhas de origem,
+  //    proporcionalmente ao faturamento de cada linha. Impostos são
+  //    lineares (percentual fixo do faturamento da própria linha) e não
+  //    sofrem esse problema — são calculados direto, linha a linha.
+  data.forEach(r => {
+    r.impostos = r.faturamento * (params.taxPct / 100);
+    const totalCli = fatByClient[r.cliente] || 0;
+    r.adm   = totalCli > 0 ? admByClient[r.cliente] * (r.faturamento / totalCli) : 0;
+    r.resAj = r.resultado - r.impostos - r.adm;
+  });
 }
 
 
@@ -3031,7 +3078,7 @@ function processPatrimonio(wb) {
    coluna ALUGUEL/LOCAÇÃO R$ (r.aluguelIndefinido) são descartados dessa
    contagem e, portanto, não entram no volume de equipamentos do rateio de
    Despesas Administrativas (refEquip/patrimonioCountByClient em
-   recomputeAdminTotal/adjRow). Isso NÃO afeta patrimonioRaw nem a
+   recomputeAdminTotal/computeRowAdjustments). Isso NÃO afeta patrimonioRaw nem a
    listagem/KPIs do modal "Métricas de Patrimônio Aferido". */
 function buildPatrimonioCountByClient(rows, incluirAluguelIndefinido = true) {
   const map = {};
@@ -4298,6 +4345,12 @@ function renderDashboard() {
   recomputeAdminTotal(); // Despesas Adm. R$ = soma das categorias selecionadas x Empresa/Ano/Mês do cenário
   recomputeDesmarcadasTotal(); // Despesas Desmarcadas R$ = soma das categorias NÃO selecionadas x Empresa/Ano/Mês do cenário
   const data = getFiltered();
+  // ✅ Correção: calcula impostos/adm/resAj uma única vez por linha, sem
+  // duplicar a parcela de equipamentos de clientes multiempresa — ver
+  // computeRowAdjustments(). Roda ANTES de qualquer render/agregação, pois
+  // todas as telas (KPIs, gráficos, tabela, modal de cliente e exportações)
+  // agora leem "impostos"/"adm"/"resAj" diretamente de cada linha.
+  computeRowAdjustments(data);
   renderKPIs(data);
   renderMonthlyChart(data);
   renderEmpresaChart(data);
@@ -4326,9 +4379,11 @@ function renderKPIs(data) {
   const pct   = fat > 0 ? res/fat : 0;
   const inadPct = fat > 0 ? inad/fat : 0;
   const clients = new Set(data.map(r=>r.cliente)).size;
-  // Ajustes: impostos + despesas administrativas (100% rateadas)
-  const impostos = fat * (params.taxPct/100);
-  const adm      = effectiveAdminTotal(data);
+  // Ajustes: impostos + despesas administrativas — somados diretamente das
+  // linhas já calculadas por computeRowAdjustments() (garante que este
+  // total bata exatamente com a soma de qualquer tabela/gráfico derivado).
+  const impostos = data.reduce((s,r)=>s+(r.impostos||0),0);
+  const adm      = data.reduce((s,r)=>s+(r.adm||0),0);
   const resAj    = res - impostos - adm;
   const pctAj    = fat > 0 ? resAj/fat : 0;
 
@@ -4526,16 +4581,11 @@ function renderEmpresaLucratividadeChart(data) {
   const foot = document.getElementById('empresa-ranking-foot');
   if (!ctxEl) return;
 
-  const { base: globalBase } = computeBases(data);
-  const admEffective = effectiveAdminTotal(data);
-  const clientRows = buildClientAgg(data).map(row => {
-    const adj = adjRow(row, globalBase, admEffective);
-    return {
-      ...row,
-      resAj: adj.resAjustado,
-      margemAj: row.fat > 0 ? (adj.resAjustado / row.fat) : 0
-    };
-  }).sort((a,b) => b.resAj - a.resAj || b.fat - a.fat);
+  // ✅ buildClientAgg já retorna impostos/adm/resAj corretos (somados por
+  // linha, sem duplicar equipamentos de clientes multiempresa).
+  const clientRows = buildClientAgg(data)
+    .map(row => ({ ...row, margemAj: row.lucratividade }))
+    .sort((a,b) => b.resAj - a.resAj || b.fat - a.fat);
 
   const topRows = clientRows.slice(0, 10);
   const labels = topRows.map((r, i) => `${i + 1}. ${r.name.length > 20 ? r.name.slice(0, 20) + '…' : r.name} · ${r.emp}`);
@@ -4733,7 +4783,7 @@ function renderTable(data) {
     if (!byClient[k]) byClient[k] = {
       key:k, clientKey:r.cliente, name:r.displayName,
       empresas: new Set(), periodos: new Set(),
-      fat:0, rec:0, inad:0, vend:0, alug:0, res:0
+      fat:0, rec:0, inad:0, vend:0, alug:0, res:0, impostos:0, adm:0
     };
     const b = byClient[k];
     b.empresas.add(r.empresa);
@@ -4744,6 +4794,10 @@ function renderTable(data) {
     b.vend += r.vendas;
     b.alug += r.alugueis;
     b.res  += r.resultado;
+    // ✅ impostos/adm já calculados por linha (computeRowAdjustments),
+    // sem duplicidade — somar aqui é seguro.
+    b.impostos += (r.impostos || 0);
+    b.adm      += (r.adm || 0);
   });
 
   let rows = Object.values(byClient).map((r,i) => {
@@ -4765,6 +4819,7 @@ function renderTable(data) {
       mesTitle: periodosArr.map(p => `${MESES[p%100]}/${String(Math.floor(p/100)).slice(-2)}`).join(', '),
       mesSort: periodosArr[periodosArr.length-1] || 0,
       fat:r.fat, rec:r.rec, inad:r.inad, vend:r.vend, alug:r.alug, res:r.res,
+      impostos:r.impostos, adm:r.adm,
       // Quantidade de equipamentos vinculados a este cliente na aba
       // "Patrimônio aferido" (independe do cenário de filtros financeiros
       // aplicado — reflete o total cadastrado para o cliente).
@@ -4772,14 +4827,11 @@ function renderTable(data) {
       rank:i+1
     };
   });
-  // Aplicar ajustes (impostos + rateio de despesas administrativas)
-  const { base: globalBase } = computeBases(data);
-  const admEff = effectiveAdminTotal(data);
+  // Impostos/adm já vieram somados por linha (computeRowAdjustments) em
+  // "rows" — só falta o Resultado Ajustado e a Lucratividade de cada
+  // cliente.
   rows.forEach(r => {
-    const a = adjRow(r, globalBase, admEff);
-    r.impostos = a.impostos;
-    r.adm      = a.adm;
-    r.resAj    = a.resAjustado;
+    r.resAj = r.res - r.impostos - r.adm;
     r.lucratividade = r.fat > 0 ? r.resAj / r.fat : 0;
   });
   rows.sort((a,b)=>b.resAj-a.resAj);
@@ -4936,7 +4988,7 @@ function drawTable() {
    totalizador reflete o total real, independente da paginação.
    Custo Adm. (rateio) somado aqui bate com o total de despesas administrativas
    do cenário, pois cada linha já recebeu sua fração proporcional ao
-   faturamento (ver adjRow/effectiveAdminTotal). */
+   faturamento (ver computeRowAdjustments/effectiveAdminTotal). */
 function renderTableTotals(rows) {
   const foot = document.getElementById('table-foot');
   if (!foot) return;
@@ -5082,7 +5134,7 @@ function buildClientDetail(clientKey, emp) {
     ? [...new Set(rows.map(r=>r.empresa))].sort().join(' + ')
     : emp;
 
-  const totals = { clientKey, emp: empDisplay, name: rows[0].displayName || clientKey, fat:0, rec:0, inad:0, vend:0, alug:0, res:0 };
+  const totals = { clientKey, emp: empDisplay, name: rows[0].displayName || clientKey, fat:0, rec:0, inad:0, vend:0, alug:0, res:0, impostos:0, adm:0 };
   rows.forEach(r => {
     totals.fat  += r.faturamento;
     totals.rec  += r.receitas;
@@ -5090,27 +5142,25 @@ function buildClientDetail(clientKey, emp) {
     totals.vend += r.vendas;
     totals.alug += r.alugueis;
     totals.res  += r.resultado;
+    // ✅ impostos/adm já calculados por linha (computeRowAdjustments) sobre
+    // TODO o cenário filtrado (scenario), com o volume de equipamentos do
+    // cliente contado uma única vez — somar aqui, restrito às linhas deste
+    // cliente/empresa, preserva exatamente esse valor (sem recalcular o
+    // rateio "de novo" sobre uma linha já agregada, que é o que causava a
+    // duplicação de equipamentos — ver adjRow acima).
+    totals.impostos += (r.impostos || 0);
+    totals.adm      += (r.adm || 0);
   });
-
+  totals.resAj = totals.res - totals.impostos - totals.adm;
   const scenarioBases = computeBases(scenario);
-  const scenarioAdmEff = effectiveAdminTotal(scenario);
-  // Passa "totals" (com clientKey) para que o rateio use a fatia
-  // combinada faturamento + volume de equipamentos do cliente, e não só
-  // faturamento (ver adjRow).
-  const totalsAdj = adjRow(totals, scenarioBases.base, scenarioAdmEff);
-  totals.impostos = totalsAdj.impostos;
-  totals.adm      = totalsAdj.adm;
-  totals.resAj    = totalsAdj.resAjustado;
 
   const monthly = rows.map(r => {
-    const impostos = r.faturamento * (params.taxPct / 100);
-    // A parcela de equipamentos do rateio (aba Patrimônio aferido) não tem
-    // granularidade mensal — é um retrato do parque instalado do cliente,
-    // não do mês. Por isso a Despesa Adm. total do cliente (totals.adm,
-    // já combinando faturamento + equipamentos) é distribuída mês a mês
-    // proporcionalmente ao faturamento de cada mês, garantindo que a soma
-    // das linhas mensais bata exatamente com a linha de Total do modal.
-    const adm = totals.fat > 0 ? totals.adm * (r.faturamento / totals.fat) : 0;
+    // impostos/adm já vêm prontos de computeRowAdjustments — cada linha
+    // (cliente+empresa+ano+mês) já carrega sua fatia proporcional correta
+    // do total do cliente, então a soma das linhas mensais bate exatamente
+    // com a linha de Total do modal, sem precisar redistribuir aqui.
+    const impostos = r.impostos || 0;
+    const adm = r.adm || 0;
     const resAjustado = r.resultado - impostos - adm;
     // Quando o cliente tem mais de uma empresa (isAllEmpresas), um mesmo
     // mês pode aparecer mais de uma vez (uma linha por empresa) — o nome
@@ -5973,19 +6023,19 @@ function chartOptions({ stacked=false } = {}) {
 ══════════════════════════════════════════════════════ */
 function exportXLSX() {
   const data    = getFiltered();
+  // ✅ Garante impostos/adm/resAj recalculados para o cenário atual, sem
+  // depender de um render anterior já ter rodado (ver computeRowAdjustments).
+  recomputeAdminTotal();
+  computeRowAdjustments(data);
   const clientAgg = buildClientAgg(data);
   const monthly  = buildMonthlyAgg(data);
   const empresa  = buildEmpresaRankingAgg(data);
-  const { base: gBase } = computeBases(data);
-  const gAdmEff = effectiveAdminTotal(data);
-  // Enriquecer cada agregação com impostos / adm / resAj
-  const enrich = arr => arr.forEach(r => { const a = adjRow(r, gBase, gAdmEff); r.impostos=a.impostos; r.adm=a.adm; r.resAj=a.resAjustado; r.lucratividade = r.fat > 0 ? (r.resAj / r.fat) : 0; });
-  enrich(clientAgg); enrich(empresa);
+  // ✅ buildClientAgg/buildEmpresaRankingAgg/buildMonthlyAgg já retornam
+  // impostos/adm/resAj corretos (somados por linha via
+  // computeRowAdjustments, sem duplicar equipamentos de clientes
+  // multiempresa) — nada a recalcular aqui.
   clientAgg.sort((a,b)=>b.resAj-a.resAj || b.fat-a.fat);
   const clientAggFiltered = applyResultFilter(clientAgg);
-
-  // Mensal usa mesmo esquema (r.fat/vend/alug/res já existem)
-  monthly.forEach(m => { const a = adjRow(m, gBase, gAdmEff); m.impostos=a.impostos; m.adm=a.adm; m.resAj=a.resAjustado; });
 
   const wb = XLSX.utils.book_new();
 
@@ -6125,13 +6175,17 @@ function exportXLSX() {
 ══════════════════════════════════════════════════════ */
 function exportPDF() {
   const data       = getFiltered();
+  // ✅ Garante impostos/adm/resAj recalculados para o cenário atual, sem
+  // depender de um render anterior já ter rodado (ver computeRowAdjustments).
+  recomputeAdminTotal();
+  computeRowAdjustments(data);
   let clientAgg    = buildClientAgg(data);
   const empresa    = buildEmpresaRankingAgg(data);
   const monthly    = buildMonthlyAgg(data);
-  const { base: gBase } = computeBases(data);
-  const gAdmEff = effectiveAdminTotal(data);
-  const enrich = arr => arr.forEach(r => { const a = adjRow(r, gBase, gAdmEff); r.impostos=a.impostos; r.adm=a.adm; r.resAj=a.resAjustado; r.lucratividade = r.fat > 0 ? (r.resAj / r.fat) : 0; });
-  enrich(clientAgg); enrich(empresa); enrich(monthly);
+  // ✅ buildClientAgg/buildEmpresaRankingAgg/buildMonthlyAgg já retornam
+  // impostos/adm/resAj corretos (somados por linha via
+  // computeRowAdjustments, sem duplicar equipamentos de clientes
+  // multiempresa) — nada a recalcular aqui.
   clientAgg.sort((a,b)=>b.resAj-a.resAj || b.fat-a.fat);
   clientAgg = applyResultFilter(clientAgg);
   const totalFat   = clientAgg.reduce((s,r)=>s+r.fat,0);
@@ -6641,50 +6695,58 @@ function exportPatrimonioPDF() {
 }
 
 /* ── Aggregation helpers for export ── */
+/* ✅ impostos/adm somados diretamente das linhas (já calculados por
+   computeRowAdjustments, sem duplicidade de equipamentos para clientes
+   multiempresa — ver seção "CORREÇÃO" acima). Nunca recalcular via
+   adjRow() sobre uma linha já agregada por cliente+empresa: cada linha
+   agregada herdaria 100% do volume de equipamentos do cliente, duplicando
+   essa parcela sempre que o mesmo cliente aparecer faturando por mais de
+   uma empresa (ex.: LABORATORIO BLESSING — LABMEDIC + DIAG RIO). */
 function buildClientAgg(data) {
   const map = {};
   data.forEach(r => {
     const k = r.cliente+'||'+r.empresa;
-    if (!map[k]) map[k] = { key:k, clientKey:r.cliente, name:r.displayName, emp:r.empresa, fat:0, rec:0, inad:0, vend:0, alug:0, res:0 };
+    if (!map[k]) map[k] = { key:k, clientKey:r.cliente, name:r.displayName, emp:r.empresa, fat:0, rec:0, inad:0, vend:0, alug:0, res:0, impostos:0, adm:0 };
     map[k].fat += r.faturamento; map[k].rec += r.receitas;
     map[k].inad += r.inadimplencia; map[k].vend += r.vendas;
     map[k].alug += r.alugueis; map[k].res += r.resultado;
+    map[k].impostos += (r.impostos || 0); map[k].adm += (r.adm || 0);
   });
-  return Object.values(map).sort((a,b)=>b.res-a.res);
+  return Object.values(map).map(r => ({
+    ...r,
+    resAj: r.res - r.impostos - r.adm,
+    lucratividade: r.fat > 0 ? (r.res - r.impostos - r.adm) / r.fat : 0
+  })).sort((a,b)=>b.res-a.res);
 }
 function buildMonthlyAgg(data) {
   const map = {};
   data.forEach(r => {
     const k = `${r.year}-${String(r.month).padStart(2,'0')}`;
-    if (!map[k]) map[k] = { year:r.year, month:r.month, label:k, fat:0, vend:0, alug:0, res:0 };
+    if (!map[k]) map[k] = { year:r.year, month:r.month, label:k, fat:0, vend:0, alug:0, res:0, impostos:0, adm:0 };
     map[k].fat += r.faturamento; map[k].vend += r.vendas;
     map[k].alug += r.alugueis; map[k].res += r.resultado;
+    map[k].impostos += (r.impostos || 0); map[k].adm += (r.adm || 0);
   });
-  return Object.values(map).sort((a,b)=>a.label.localeCompare(b.label));
+  return Object.values(map).map(r => ({ ...r, resAj: r.res - r.impostos - r.adm }))
+    .sort((a,b)=>a.label.localeCompare(b.label));
 }
 function buildEmpresaAgg(data) {
   const map = {};
   data.forEach(r => {
-    if (!map[r.empresa]) map[r.empresa] = { emp:r.empresa, rec:0, inad:0, fat:0, vend:0, alug:0, res:0 };
+    if (!map[r.empresa]) map[r.empresa] = { emp:r.empresa, rec:0, inad:0, fat:0, vend:0, alug:0, res:0, impostos:0, adm:0 };
     map[r.empresa].rec += r.receitas; map[r.empresa].inad += r.inadimplencia;
     map[r.empresa].fat += r.faturamento; map[r.empresa].vend += r.vendas;
     map[r.empresa].alug += r.alugueis; map[r.empresa].res += r.resultado;
+    map[r.empresa].impostos += (r.impostos || 0); map[r.empresa].adm += (r.adm || 0);
   });
   return Object.values(map).sort((a,b)=>b.fat-a.fat);
 }
 function buildEmpresaRankingAgg(data) {
-  const { base: globalBase } = computeBases(data);
-  const admEffective = effectiveAdminTotal(data);
-  return buildEmpresaAgg(data).map(row => {
-    const adj = adjRow(row, globalBase, admEffective);
-    return {
-      ...row,
-      impostos: adj.impostos,
-      adm: adj.adm,
-      resAj: adj.resAjustado,
-      lucratividade: row.fat > 0 ? (adj.resAjustado / row.fat) : 0
-    };
-  }).sort((a,b) => b.resAj - a.resAj || b.fat - a.fat).map((row, index) => ({ ...row, rank: index + 1 }));
+  return buildEmpresaAgg(data).map(row => ({
+    ...row,
+    resAj: row.res - row.impostos - row.adm,
+    lucratividade: row.fat > 0 ? ((row.res - row.impostos - row.adm) / row.fat) : 0
+  })).sort((a,b) => b.resAj - a.resAj || b.fat - a.fat).map((row, index) => ({ ...row, rank: index + 1 }));
 }
 
 // Close dropdowns on ESC
