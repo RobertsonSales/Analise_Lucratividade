@@ -855,6 +855,9 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
 .tag-MULTI { background: rgba(148,163,184,.18); color: #CBD5E1; }
 .result-pos { color: var(--green); font-weight: 600; }
 .result-neg { color: var(--red); font-weight: 600; }
+.eq-kw-chip { display:inline-flex; align-items:center; gap:5px; background:rgba(124,58,237,.12); color:#C4B5FD; border:1px solid rgba(124,58,237,.35); border-radius:99px; padding:3px 9px; font-size:.78rem; font-weight:600; }
+.eq-kw-chip button { background:none; border:none; color:inherit; cursor:pointer; font-size:.75rem; opacity:.7; padding:0; }
+.eq-kw-chip button:hover { opacity:1; }
 .result-bar-wrap { display: flex; align-items: center; gap: .5rem; }
 .result-bar {
   flex: 1; height: 4px; border-radius: 2px;
@@ -1403,6 +1406,9 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
     </div>
 
     <button class="btn-clear-all" id="btn-clear-all" onclick="clearAllFilters()">✕ Limpar filtros</button>
+    <button class="btn-clear-all" id="btn-open-eq-modal" onclick="openEqModal()" style="background:linear-gradient(135deg,#7C3AED,#4F46E5);color:#fff;border-color:transparent;font-weight:700;box-shadow:0 2px 10px rgba(124,58,237,.4)">
+      🔬 Lucratividade por Linha de Equipamentos
+    </button>
   </div>
   <!-- PARAMS BAR -->
   <div class="params-bar">
@@ -1467,29 +1473,7 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
           <option value="neg">Apenas negativos</option>
         </select>
       </div>
-      <span class="param-caption">Filtra o Ranking por Cliente, a planilha e os PDFs pelo sinal do <strong>Resultado Ajustado</strong>.</span>
-    </div>
-
-    <div class="param-group" id="aluguel-indefinido-filter-group">
-      <div class="param-field" style="min-width:240px">
-        <label for="select-aluguel-indefinido">Equip. sem Locação (“?”)</label>
-        <select id="select-aluguel-indefinido" onchange="setAluguelIndefinidoFilter(this.value)" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.55);color:inherit;font-weight:600;cursor:pointer">
-          <option value="excluir" selected>Excluir do rateio</option>
-          <option value="incluir">Incluir no rateio</option>
-        </select>
-      </div>
-      <span class="param-caption">Equipamentos com <strong>“?”</strong> na coluna Aluguel/Locação da aba <strong>Patrimônio aferido</strong> — controla se entram no volume de equipamentos do rateio de Despesas Adm.</span>
-    </div>
-
-    <div class="param-group" id="aluguel-faturamento-filter-group">
-      <div class="param-field" style="min-width:240px">
-        <label for="select-aluguel-faturamento">Aluguéis no Faturamento</label>
-        <select id="select-aluguel-faturamento" onchange="setAluguelNoFaturamento(this.value)" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.55);color:inherit;font-weight:600;cursor:pointer">
-          <option value="excluir" selected>Não incluir</option>
-          <option value="incluir">Incluir no faturamento</option>
-        </select>
-      </div>
-      <span class="param-caption">Inclui (ou não) a <strong>Receita de Aluguéis</strong> no Faturamento‑Base de cada cliente — reflete em Impostos, rateio de Despesas Adm. e Margens Bruta/Líquida.</span>
+      <span class="param-caption">Filtra o Ranking por Cliente, a planilha e os PDFs pelo sinal do <strong>Resultado</strong>.</span>
     </div>
 
     <div class="param-group" id="patrimonio-metrics-group">
@@ -1525,7 +1509,7 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
       <div class="chart-card">
         <div class="chart-header">
           <div>
-            <div class="chart-title">Faturamento vs Insumos vs Resultado</div>
+            <div class="chart-title">Faturamento vs Insumos vs Margem Bruta</div>
             <div class="chart-subtitle">Evolução mensal consolidada</div>
           </div>
           <div class="chart-tabs">
@@ -1555,7 +1539,7 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
       <div class="chart-card">
         <div class="chart-header">
           <div>
-            <div class="chart-title">Resultado por Empresa</div>
+            <div class="chart-title">Margem Bruta por Empresa</div>
             <div class="chart-subtitle">Faturamento · Insumos · Margem</div>
           </div>
         </div>
@@ -1587,7 +1571,7 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
         <div class="chart-header">
           <div>
             <div class="chart-title">Ranking por Empresa Emissora</div>
-            <div class="chart-subtitle">Resultado ajustado, faturamento e lucratividade do cenário filtrado</div>
+            <div class="chart-subtitle">Resultado, faturamento e lucratividade do cenário filtrado</div>
           </div>
         </div>
         <div class="ranking-table-wrap">
@@ -1597,7 +1581,7 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
                 <th>#</th>
                 <th>Empresa</th>
                 <th style="text-align:right">Faturamento</th>
-                <th style="text-align:right">Res. Ajust.</th>
+                <th style="text-align:right">Resultado</th>
                 <th style="text-align:right">Lucratividade</th>
               </tr>
             </thead>
@@ -1641,10 +1625,10 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
               <th onclick="sortTable('inadimplencia')" style="text-align:right">Inadimplência<span class="sort-icon">↕</span></th>
               <th onclick="sortTable('vendas')" style="text-align:right">Insumos<span class="sort-icon">↕</span></th>
               <th onclick="sortTable('alugueis')" style="text-align:right">Aluguéis<span class="sort-icon">↕</span></th>
-              <th onclick="sortTable('resultado')" style="text-align:right">Resultado<span class="sort-icon">↕</span></th>
+              <th onclick="sortTable('resultado')" style="text-align:right">Margem Bruta<span class="sort-icon">↕</span></th>
               <th onclick="sortTable('impostos')" style="text-align:right">Impostos<span class="sort-icon">↕</span></th>
               <th onclick="sortTable('adm')" style="text-align:right">Custo Adm. (rateio)<span class="sort-icon">↕</span></th>
-              <th onclick="sortTable('resAj')" style="text-align:right">Resultado Ajust.<span class="sort-icon">↕</span></th>
+              <th onclick="sortTable('resAj')" style="text-align:right">Resultado<span class="sort-icon">↕</span></th>
             </tr>
           </thead>
           <tbody id="table-body"></tbody>
@@ -1894,6 +1878,165 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
   </div>
 </div>
 
+<!-- MODAL: Lucratividade por Linha de Equipamentos -->
+<div class="client-modal" id="eq-modal" onclick="if (event.target === this) closeEqModal()">
+  <div class="client-modal-panel" style="width:min(1400px, 100%)">
+    <div class="client-modal-header">
+      <div class="client-modal-title">
+        <h3>🔬 Lucratividade por Linha de Equipamentos</h3>
+        <div class="client-modal-subtitle"><span id="eq-modal-meta"></span></div>
+      </div>
+      <div class="client-modal-actions">
+        <button class="client-modal-btn" onclick="eqClearAllFilters()">↺ Limpar filtros</button>
+        <button class="client-modal-btn primary" onclick="exportEqPDF()">🖨️ PDF A4 (paisagem)</button>
+        <button class="client-modal-btn" onclick="exportEqXLSX()">📊 Exportar Excel</button>
+        <button class="client-modal-btn ghost" onclick="closeEqModal()">✕ Fechar</button>
+      </div>
+    </div>
+    <div class="client-modal-body">
+      <div id="eq-empty-state" style="display:none;padding:2.5rem 1rem;text-align:center;color:var(--muted)">
+        Aba <strong>"Insumos"</strong> não foi encontrada nesta planilha — o painel usará apenas Aluguéis.
+      </div>
+
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:.75rem">
+        Compara, para cada <strong>cliente único</strong>, o Faturamento (aba Faturamento) com o Custo dos Insumos
+        vendidos ao cliente (aba Insumos) + rateio de Despesas Administrativas + Impostos, aplicando o mesmo
+        rateio e o mesmo % de Impostos do dashboard principal — essa é a base da <strong>Margem</strong> e do
+        <strong>Resultado</strong>. Os <strong>Aluguéis</strong> (aba Aluguéis) aparecem apenas como dado
+        <strong>informativo</strong> ao lado (KPI e coluna "Aluguéis"), sem entrar no Custo Total nem na
+        análise de lucratividade. O filtro <strong>Linha</strong> restringe quais linhas de Insumos/Aluguéis entram nesses
+        totais — o Faturamento nunca é fatiado por linha (a aba de origem não tem essa coluna).
+      </p>
+
+      <div class="pat-filters-grid">
+        <div class="ms-wrapper" id="ms-eqEmpresa-wrap">
+          <div class="ms-trigger" id="ms-eqEmpresa-trigger" onclick="eqToggleDropdown('eqEmpresa')">
+            <span>🏢</span><span id="ms-eqEmpresa-label">Empresa</span>
+            <span class="ms-badge" id="ms-eqEmpresa-badge" style="display:none"></span><span class="icon">▾</span>
+          </div>
+          <div class="ms-dropdown" id="ms-eqEmpresa-dropdown">
+            <div class="ms-search"><input type="text" id="ms-eqEmpresa-search-input" placeholder="🔍 Buscar…" oninput="eqFilterOptions('eqEmpresa',this.value)"></div>
+            <div class="ms-actions"><button onclick="eqSelectAll('eqEmpresa')">Selecionar todas</button><button onclick="eqClearAll('eqEmpresa')">Limpar</button></div>
+            <div class="ms-options" id="ms-eqEmpresa-options"></div>
+          </div>
+        </div>
+        <div class="ms-wrapper" id="ms-eqAno-wrap">
+          <div class="ms-trigger" id="ms-eqAno-trigger" onclick="eqToggleDropdown('eqAno')">
+            <span>📅</span><span id="ms-eqAno-label">Ano</span>
+            <span class="ms-badge" id="ms-eqAno-badge" style="display:none"></span><span class="icon">▾</span>
+          </div>
+          <div class="ms-dropdown" id="ms-eqAno-dropdown">
+            <div class="ms-search"><input type="text" id="ms-eqAno-search-input" placeholder="🔍 Buscar…" oninput="eqFilterOptions('eqAno',this.value)"></div>
+            <div class="ms-actions"><button onclick="eqSelectAll('eqAno')">Selecionar todos</button><button onclick="eqClearAll('eqAno')">Limpar</button></div>
+            <div class="ms-options" id="ms-eqAno-options"></div>
+          </div>
+        </div>
+        <div class="ms-wrapper" id="ms-eqMes-wrap">
+          <div class="ms-trigger" id="ms-eqMes-trigger" onclick="eqToggleDropdown('eqMes')">
+            <span>🗓️</span><span id="ms-eqMes-label">Mês</span>
+            <span class="ms-badge" id="ms-eqMes-badge" style="display:none"></span><span class="icon">▾</span>
+          </div>
+          <div class="ms-dropdown" id="ms-eqMes-dropdown">
+            <div class="ms-search"><input type="text" id="ms-eqMes-search-input" placeholder="🔍 Buscar…" oninput="eqFilterOptions('eqMes',this.value)"></div>
+            <div class="ms-actions"><button onclick="eqSelectAll('eqMes')">Selecionar todos</button><button onclick="eqClearAll('eqMes')">Limpar</button></div>
+            <div class="ms-options" id="ms-eqMes-options"></div>
+          </div>
+        </div>
+        <div class="ms-wrapper" id="ms-eqCliente-wrap">
+          <div class="ms-trigger" id="ms-eqCliente-trigger" onclick="eqToggleDropdown('eqCliente')">
+            <span>👤</span><span id="ms-eqCliente-label">Cliente</span>
+            <span class="ms-badge" id="ms-eqCliente-badge" style="display:none"></span><span class="icon">▾</span>
+          </div>
+          <div class="ms-dropdown" id="ms-eqCliente-dropdown">
+            <div class="ms-search"><input type="text" id="ms-eqCliente-search-input" placeholder="🔍 Buscar cliente…" oninput="eqFilterOptions('eqCliente',this.value)"></div>
+            <div class="ms-actions"><button onclick="eqSelectAll('eqCliente')">Selecionar todos</button><button onclick="eqClearAll('eqCliente')">Limpar</button></div>
+            <div class="ms-options" id="ms-eqCliente-options"></div>
+          </div>
+        </div>
+        <div class="ms-wrapper" id="ms-eqLinha-wrap">
+          <div class="ms-trigger" id="ms-eqLinha-trigger" onclick="eqToggleDropdown('eqLinha')">
+            <span>🔬</span><span id="ms-eqLinha-label">Linha</span>
+            <span class="ms-badge" id="ms-eqLinha-badge" style="display:none"></span><span class="icon">▾</span>
+          </div>
+          <div class="ms-dropdown" id="ms-eqLinha-dropdown">
+            <div class="ms-search"><input type="text" id="ms-eqLinha-search-input" placeholder="🔍 Buscar linha…" oninput="eqFilterOptions('eqLinha',this.value)"></div>
+            <div class="ms-actions"><button onclick="eqSelectAll('eqLinha')">Selecionar todas</button><button onclick="eqClearAll('eqLinha')">Limpar</button></div>
+            <div class="ms-options" id="ms-eqLinha-options"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="client-summary-grid" id="eq-kpi-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));margin:1rem 0"></div>
+
+      <div class="client-section-grid">
+        <div class="client-card">
+          <div class="client-card-title"><h4>Lucratividade por Cliente</h4><span id="eq-cliente-table-count"></span></div>
+          <div style="overflow:auto;max-height:420px">
+            <table class="client-detail-table" id="eq-cliente-table">
+              <thead>
+                <tr>
+                  <th>Cliente</th><th class="num">Margem</th><th class="num">Faturamento</th><th class="num">Insumos</th><th class="num">Aluguéis (informativo)</th>
+                  <th class="num">Custo Total</th><th class="num">Impostos</th><th class="num">Desp. Adm.</th>
+                  <th class="num">Resultado</th>
+                </tr>
+              </thead>
+              <tbody id="eq-cliente-table-body"></tbody>
+              <tfoot id="eq-cliente-table-foot"></tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="client-card">
+          <div class="client-card-title"><h4>Custo por Linha de Equipamento</h4><span>Insumos + Impostos + Rateio</span></div>
+          <div style="overflow:auto;max-height:420px">
+            <table class="client-detail-table" id="eq-linha-table">
+              <thead><tr><th>Linha</th><th class="num">Insumos</th><th class="num">Impostos</th><th class="num">Desp. Adm.</th><th class="num">Custo Real</th><th class="num">Faturamento Proporcional</th><th class="num">% Participação</th></tr></thead>
+              <tbody id="eq-linha-table-body"></tbody>
+              <tfoot id="eq-linha-table-foot"></tfoot>
+            </table>
+          </div>
+          <span class="param-caption" style="display:block;margin-top:.4rem">Custo Real = Insumos + Impostos + rateio de Despesas Adm. atribuídos à Linha. Como Impostos/Rateio são apurados por CLIENTE (a aba Faturamento não tem coluna Linha), cada cliente tem seus próprios valores rateados entre as linhas em que ele compra, proporcional ao peso de cada linha dentro dos Insumos+Aluguéis daquele cliente — preservando a composição real de clientes por trás de cada Linha (uma Linha comprada por clientes de margem mais apertada herda um Custo Real proporcionalmente maior). <strong>Faturamento Proporcional</strong> é a fatia do Faturamento de cada cliente que de fato serviu de base matemática para os Impostos/Desp. Adm. desta Linha (Faturamento × peso da Linha) — útil para conferir a conta ao filtrar um cliente específico. <strong>% Participação</strong> compara o Custo Real da Linha com o Faturamento GLOBAL (total do período, não rateado) dos clientes que compram naquela Linha — mostrando o quanto o custo daquela linha de consumo realmente representa diante do faturamento desses clientes.</span>
+        </div>
+      </div>
+
+      <div class="client-card" style="margin-top:1rem">
+        <div class="client-card-title">
+          <h4>🗂️ Origem da classificação de Linha</h4>
+          <span>Fonte primária: aba "Linhas" da planilha</span>
+        </div>
+        <span class="param-caption" id="eq-linha-source-stats" style="display:block"></span>
+      </div>
+
+      <div class="client-card" style="margin-top:1rem">
+        <div class="client-card-title">
+          <h4>⚙️ Classificação de Linha (palavras-chave — reserva)</h4>
+          <span>Só entra em ação quando o produto não é encontrado na aba "Linhas"</span>
+        </div>
+        <span class="param-caption" style="display:block;margin-bottom:.6rem">A aba <strong>"Linhas"</strong> da planilha (coluna PRODUTO → LINHA) é agora a fonte principal de classificação — atualize-a na planilha para classificar um produto novo. Este dicionário de palavras-chave continua editável e reclassifica na hora (sem reimportar a planilha), mas só é usado como reserva para produtos ainda ausentes da aba "Linhas".</span>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:.6rem">
+          <select id="eq-kw-linha-select" onchange="renderEqKeywordEditor()" style="padding:6px 8px;border-radius:6px"></select>
+          <input type="text" id="eq-kw-new-input" placeholder="Nova palavra-chave…" style="padding:6px 8px;border-radius:6px;min-width:220px">
+          <button class="client-modal-btn primary" onclick="eqAddKeywordFromInput()">+ Adicionar</button>
+        </div>
+        <div id="eq-kw-chips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+
+      <div class="client-card" style="margin-top:1rem">
+        <div class="client-card-title">
+          <h4>Itens não classificados</h4>
+          <span id="eq-unclassified-count"></span>
+        </div>
+        <span class="param-caption" style="display:block;margin-bottom:.4rem">Produtos que não foram encontrados na aba "Linhas" (nem por nome exato, nem por nome-base ignorando lote/validade) e também não bateram com nenhuma palavra-chave. Classifique aqui na hora ou, de preferência, cadastre o produto na aba "Linhas" da planilha.</span>
+        <div style="overflow:auto;max-height:340px">
+          <table class="client-detail-table">
+            <thead><tr><th>Produto</th><th class="num">Valor</th><th>Classificar como…</th></tr></thead>
+            <tbody id="eq-unclassified-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ══════════════════════════════════════════════════════
    GLOBAL STATE
@@ -1903,7 +2046,7 @@ let despesasRaw = []; // linhas da aba "Despesas" (rateio das Despesas Administr
 let charts   = {};   // Chart.js instances
 let filters  = { empresa: new Set(), ano: new Set(), mes: new Set(), cliente: new Set(), categoria: new Set() };
 let allValues = { empresa: [], ano: [], mes: [], cliente: [], categoria: [] };
-let resultFilter = 'all'; // 'all' | 'pos' | 'neg' — filtra pelo sinal do Resultado Ajustado
+let resultFilter = 'all'; // 'all' | 'pos' | 'neg' — filtra pelo sinal do Resultado
 
 /* ── Patrimônio Aferido (modal independente, aba "Patrimônio aferido") ──
    Estado isolado do restante do dashboard: filtros, opções e seleção
@@ -1922,14 +2065,13 @@ const PAT_EXCLUDED_CATEGORIAS = new Set(['AUXILIAR', 'PERIFERICO']); // comparad
 // Controla se os equipamentos com "?" na coluna ALUGUEL/LOCAÇÃO R$ da aba
 // "Patrimônio aferido" entram no volume de equipamentos usado pelo rateio de
 // Despesas Administrativas (patrimonioCountByClient / refEquip / computeRowAdjustments).
-// Padrão: EXCLUÍDOS do rateio (esses equipamentos não têm valor de locação
-// apurado, então não representam esforço de assistência técnica confiável
-// para compor a base do rateio). O usuário pode alternar pelo seletor ao
-// lado do filtro "Exibir Clientes" (positivos/negativos) — ver
-// setAluguelIndefinidoFilter(). Não afeta a listagem/KPIs do modal
-// "Métricas de Patrimônio Aferido", que continua exibindo todos os
-// equipamentos cadastrados, nem o KPI "Total Locação".
-let incluirEquipAluguelIndefinido = false;
+// Fixo: SEMPRE EXCLUÍDOS do rateio (esses equipamentos não têm valor de
+// locação apurado, então não representam esforço de assistência técnica
+// confiável para compor a base do rateio) — comportamento fixo, sem
+// seletor na interface. Não afeta a listagem/KPIs do modal "Métricas de
+// Patrimônio Aferido", que continua exibindo todos os equipamentos
+// cadastrados, nem o KPI "Total Locação".
+const incluirEquipAluguelIndefinido = false;
 let patFilters   = { patCliente: new Set(), patUnidade: new Set(), patCategoria: new Set(), patEquipamento: new Set(), patRegiao: new Set() };
 let patAllValues = { patCliente: [], patUnidade: [], patCategoria: [], patEquipamento: [], patRegiao: [] };
 let patSearchQueries = { patCliente: '', patUnidade: '', patCategoria: '', patEquipamento: '', patRegiao: '' };
@@ -1949,41 +2091,167 @@ let patLastFilteredRows = [];       // último `rows` (filtrado) renderizado em 
 let patClienteDetalheRows    = [];
 let patClienteDetalheCliente = '';
 let patClienteDetalheUnidade = '';
-/* Controla se a Receita de Aluguéis (aba "Aluguéis") entra na composição do
-   Faturamento-Base de cada cliente/linha — e, por consequência, em tudo que
-   deriva dele: Impostos, rateio de Despesas Administrativas e margens
-   Bruta/Líquida. Default = false (NÃO incluir), preservando o comportamento
-   histórico do dashboard. Alternável pelo seletor "Aluguéis no Faturamento"
-   (mesma linha dos demais seletores da barra "Base do Rateio") — ver
-   setAluguelNoFaturamento(). */
-let incluirAlugueisNoFaturamento = false;
+/* A Receita de Aluguéis (aba "Aluguéis") NUNCA compõe o Faturamento-Base
+   de cliente/linha — e, por consequência, não influencia Impostos, rateio
+   de Despesas Administrativas nem margens Bruta/Líquida. Comportamento
+   fixo (sem seletor na interface): os Aluguéis são exibidos apenas como
+   indicador informativo próprio (card/coluna "Receita de Aluguéis"),
+   nunca somados ao Faturamento efetivo. */
+const incluirAlugueisNoFaturamento = false;
+
+/* ══════════════════════════════════════════════════════
+   LUCRATIVIDADE POR LINHA DE EQUIPAMENTOS (modal independente)
+══════════════════════════════════════════════════════
+   Nova visão analítica: para cada CLIENTE ÚNICO, compara o Faturamento
+   (aba "Faturamento", já usado no dashboard principal) com a soma de
+   Custo dos Insumos (aba "Insumos" — notas fiscais item a item, diferente
+   da aba "Custo de Vendas" — antiga "Vendas" — já usada no card "Custo dos
+   Insumos" do dashboard principal) + Aluguéis (aba "Aluguéis"), aplicando o MESMO rateio de
+   Despesas Administrativas e o mesmo % de Impostos já usados no resto do
+   app. "Linha" é uma dimensão de FILTRO (Gasometria, Hematologia,
+   Bioquímica etc. — mesma nomenclatura da coluna "LINHA" da aba
+   Aluguéis): como a aba Faturamento não tem essa coluna, o Faturamento
+   de cada cliente nunca é fatiado por linha (evita contagem dupla) — o
+   filtro de Linha só restringe QUAIS linhas de Insumos+Aluguéis entram
+   na soma de custo. Estado isolado (prefixo "eq"), não interfere nos
+   filtros principais nem no modal de Patrimônio. */
+let insumosEquipRaw   = [];  // linhas normalizadas da aba "Insumos", já classificadas por linha (ver reclassifyInsumosEquip)
+let insumosEquipItemsRaw = []; // mesmas linhas, granularidade de ITEM, sem classificação — fonte para reclassificar ao vivo
+let alugueisEquipRaw  = [];  // linhas normalizadas da aba "Aluguéis" (1 linha por lançamento, já com "linha")
+let insumosSheetFound  = false;
+let eqUnclassified = {};     // { nomeDoProduto: valorTotal } — itens da aba Insumos que não bateram nem com a aba "Linhas" nem com nenhuma palavra-chave
+let PRODUTO_LINHA_MAP = {};      // norm(PRODUTO) → Linha canônica, lido da aba "Linhas" (casamento EXATO, inclui lote/validade)
+let PRODUTO_LINHA_BASE_MAP = {}; // norm(nome-base, sem LOTE/VALIDADE) → Linha canônica — só entra quando TODAS as variações de lote daquele nome-base na aba "Linhas" apontam para a MESMA Linha (evita ambiguidade); cobre lotes futuros do mesmo produto que ainda não tenham sido cadastrados na aba "Linhas"
+let eqLinhaLookupStats = { exato: 0, base: 0, palavraChave: 0, naoClassificado: 0 }; // contadores de origem da classificação, refeitos a cada reclassifyInsumosEquip() — usados para mostrar ao usuário o quanto a aba "Linhas" já cobre sozinha
+
+/* Dicionário de palavras-chave usado como REDE DE SEGURANÇA para
+   classificar um ITEM da aba "Insumos" (coluna "Produto") quando ele NÃO
+   é encontrado na aba "Linhas" da planilha (nem por nome exato, nem pelo
+   nome-base sem lote/validade — ver PRODUTO_LINHA_MAP/PRODUTO_LINHA_BASE_MAP
+   e classifyLinha() logo abaixo). A aba "Linhas" é a FONTE PRIMÁRIA de
+   classificação desde a harmonização pedida pelo usuário (cobre ~100% dos
+   itens da planilha-modelo por casamento exato produto→linha); este
+   dicionário só entra em ação para o raro produto novo que ainda não
+   conste na aba "Linhas" nem pelo nome-base. Mesmas categorias já usadas
+   na coluna "LINHA" da aba Aluguéis e na aba "Linhas". Como a busca é por
+   substring (após norm() — maiúsculas, sem acento), continua funcionando
+   mesmo sem a palavra-chave exata. Quando nada bate (nem Linhas, nem
+   palavra-chave), o item cai em "NÃO CLASSIFICADO" e aparece no painel
+   "Itens não classificados" do modal — o usuário pode cadastrar a
+   palavra-chave que faltou ali (botão "+ classificar") ou, melhor ainda,
+   atualizar a aba "Linhas" da planilha na próxima importação. */
+let LINE_KEYWORDS = {
+  'GASOMETRIA': ['GASOMETRIA','PRIME CCS','STAT PROFILE','CARTUCHO CALIBRADOR','CARTAO SENSOR','CARTUCHO QC','CARTUCHO REAGENTE CONTROLE','GAS SANGUINEO','BLOOD GAS','GEM PREMIER','ABL800','ABL90','ABL5','GASMEETER',' GASO','DOSAGEM GASO','KIT REAGENTE P/ AFERI','REAG. P/ DIAG CLIN','REAGENTE P/ DIAG CLIN','REAGENTE PREPA. APRE','VIDACAL','VIDACON','GASMETER'],
+  'ELETRÓLISE': ['ELECTROLYTE','ELETROLITO','SMARTLYTE','SMATLYTE','PACOTE CALIBRADOR KDV','SODIO POTASSIO CLORO','MAX ION','DOUBLE PACK','SOL CALIBRAD PACK','ACID WASH SOLUTION','SOLUCAO CONDICI'],
+  'ÍONS SELETIVOS': ['IONS SELETIVOS','ION SELETIVO','ISE '],
+  'COAGULAÇÃO': ['COAGUL','DIMERO','D-DIMERO','TTPA','FIBRINOGENIO','PROTROMBINA','TEMPO DE PROTROMBINA','CUBETA MAX COAG','TP BIOCLIN','TP CLOT',' PTT ','TROBOPLASTICA'],
+  'HEMATOLOGIA': ['HEMOLISE','HEMACOUNTER','HEMOTON','HEMOGRAMA',' DIFF ','LEUCOCITO','PLAQUETA','ERITROCITO','HEMATOLOGIA','SYSMEX','VYTCON','VIDATON','DIATON','D CHECK D'],
+  'BIOQUÍMICA': ['PCR ','PCR(','PCR TURBIDIMETRICO','LIPASE','GLICOSE','UREIA','CREATININA','COLESTEROL','TRIGLICERIDE','ALBUMINA','BILIR','AMILASE','ACIDO URICO','TRANSAMINASE','GAMA GT','FOSFATASE','BIOQUIMICA','ALT ','AST ','TGO','TGP','PROCALCITONINA',' PCT ','CKNAC','CK TOTAL','HDL','QUALITROL CK','LACTATO','SOLUCAO DESPROTEINIZANTE','SOLUÇÃO CALIBRADORA','COLUNA P/ CROMATOGRAFIA'],
+  'MARC. CARDÍACO': ['TROPONINA','CKMB','CK-MB','BNP','PROBNP','MIOGLOBINA','MARCADOR CARDIACO','MARC. CARDIACO','CARDIACA','PEPTIDEO NATRIURETICO'],
+  'HEMOCULTURA': ['HEMOCULTURA','BLOOD CULTUR','MEIO DE CULTURA','AEROBIOSE','ANAEROBIOSE','AEROBIC','ANAEROBIC'],
+  'URINÁLISE': ['URINA','URINALISE','SEDIMENTO URINARIO','TIRA REAGENTE URINA'],
+  'IMUNOLOGIA': ['IMUNO','ELISA','ANTICORPO','ANTIGENO','SOROLOGIA','TSH','PSA','BETA HCG','HORMONIO','BHCG','SARS-COV','INFLUENZA'],
+  'HEMOGLOBINA': ['HEMOGLOBINA GLICADA','HBA1C','HEMOGLOBINA'],
+  'OSMOSE': ['OSMOSE','OSMOLALIDADE','OSMOMETRO'],
+  'DEONIZADOR': ['DEIONIZADOR','DEONIZADOR','AGUA DEIONIZADA'],
+  // Categorias abaixo vêm da aba "Linhas" da planilha e não têm produtos
+  // recorrentes o bastante para uma palavra-chave curada com segurança;
+  // ficam com a lista vazia só para aparecerem como opção no seletor do
+  // painel "Classificação de Linha" (o usuário pode cadastrar uma
+  // palavra-chave manualmente se algum item cair aqui por engano).
+  'CONSUMÍVEIS': [], 'CONTROLES E CALIBRADORES': [], 'EQUIPAMENTO': [], 'VETERINÁRIA': [],
+};
+// "DIVERSAS" não tem palavras-chave de classificação própria (é o "outras"
+// já usado na coluna LINHA da aba Aluguéis para lançamentos que não se
+// encaixam nas linhas clínicas específicas) — precisa constar aqui mesmo
+// assim, senão canonLinha() devolve 'DIVERSAS' mas o filtro de
+// Linha do modal (eqAllValues.eqLinha/eqFilters.eqLinha) não reconhece o
+// valor e exclui esses lançamentos da soma por engano.
+const LINE_NAMES = Object.keys(LINE_KEYWORDS).concat(['DIVERSAS', 'NÃO CLASSIFICADO']);
+
+/* Normaliza pequenas variações/erros de digitação encontrados na coluna
+   "LINHA" da aba Aluguéis (espaços à direita, "IMUNO" abreviado,
+   "HUMOGLOBINA"/"MARC CARDÍACO" com grafia diferente) E na coluna "LINHA"
+   da aba "Linhas" (ex.: "Eltrólise", grafado sem o primeiro "e" de
+   "Eletrólise") para o mesmo conjunto canônico usado por LINE_KEYWORDS/
+   LINE_NAMES acima — sem isso, a mesma linha clínica apareceria duplicada
+   no filtro/breakdown só por causa da grafia (ex.: "BIOQUÍMICA" e
+   "BIOQUIMICA " como duas linhas distintas). Usado tanto por
+   processAlugueisEquip() quanto por processLinhasLookup(). */
+const CANON_LINHA_MAP = {
+  'GASOMETRIA':'GASOMETRIA', 'HEMATOLOGIA':'HEMATOLOGIA', 'BIOQUIMICA':'BIOQUÍMICA',
+  'ELETROLISE':'ELETRÓLISE', 'ELTROLISE':'ELETRÓLISE', 'COAGULACAO':'COAGULAÇÃO',
+  'IONS SELETIVOS':'ÍONS SELETIVOS', 'HEMOCULTURA':'HEMOCULTURA', 'URINALISE':'URINÁLISE',
+  'IMUNOLOGIA':'IMUNOLOGIA', 'IMUNO':'IMUNOLOGIA', 'DIVERSAS':'DIVERSAS',
+  'MARC. CARDIACO':'MARC. CARDÍACO', 'MARC CARDIACO':'MARC. CARDÍACO',
+  'HEMOGLOBINA':'HEMOGLOBINA', 'HUMOGLOBINA':'HEMOGLOBINA',
+  'OSMOSE':'OSMOSE', 'DEONIZADOR':'DEONIZADOR',
+  'CONSUMIVEIS':'CONSUMÍVEIS', 'CONTROLES E CALIBRADORES':'CONTROLES E CALIBRADORES',
+  'EQUIPAMENTO':'EQUIPAMENTO', 'VETERINARIA':'VETERINÁRIA',
+};
+function canonLinha(raw) {
+  const n = norm(raw);
+  return CANON_LINHA_MAP[n] || (n ? String(raw).trim().toUpperCase() : 'NÃO CLASSIFICADO');
+}
+
+/* Remove o trecho de LOTE/VALIDADE do nome de um produto da aba Insumos
+   (ex.: "CARTUCHO CALIBRADOR PRIME CCS - 500 TESTES #LOTE 25240051
+   #VALIDADE 18/01/2027" → "CARTUCHO CALIBRADOR PRIME CCS - 500 TESTES"),
+   para permitir casar um item com a aba "Linhas" mesmo quando o LOTE/
+   VALIDADE específico daquele item ainda não foi cadastrado lá — só o
+   lote muda de nota para nota, o nome-base do produto se repete. Usado
+   para montar PRODUTO_LINHA_BASE_MAP (ver processLinhasLookup). */
+function baseProdutoKey(produtoName) {
+  let s = String(produtoName || '');
+  s = s.split(/\s*#?\s*\b(?:LOTE|LOT|VALIDADE|VAL)\b/i)[0];
+  return norm(s);
+}
+
+/* Classifica um item da aba Insumos (nome do Produto) numa linha de
+   equipamento, em 3 camadas, na ordem:
+   1) Casamento EXATO do nome do produto com a aba "Linhas" da planilha
+      (PRODUTO_LINHA_MAP) — fonte primária, cobre praticamente todo o
+      valor da planilha-modelo.
+   2) Casamento pelo NOME-BASE (sem LOTE/VALIDADE) com a aba "Linhas"
+      (PRODUTO_LINHA_BASE_MAP) — cobre lotes/validades novos do mesmo
+      produto que ainda não tenham sido cadastrados na aba "Linhas".
+   3) Palavra-chave (LINE_KEYWORDS), por substring — rede de segurança
+      final para um produto realmente novo, ainda ausente da aba "Linhas".
+   Retorna 'NÃO CLASSIFICADO' quando nada bate nas 3 camadas — esses itens
+   são contabilizados (o valor não desaparece do Custo dos Insumos) mas
+   aparecem separadamente no painel "Itens não classificados" do modal.
+   Atualiza eqLinhaLookupStats para refletir de onde veio cada classificação
+   (ver reclassifyInsumosEquip). */
+function classifyLinha(produtoName) {
+  const n = norm(produtoName);
+  if (n && PRODUTO_LINHA_MAP[n]) { eqLinhaLookupStats.exato++; return PRODUTO_LINHA_MAP[n]; }
+  const base = baseProdutoKey(produtoName);
+  if (base && PRODUTO_LINHA_BASE_MAP[base]) { eqLinhaLookupStats.base++; return PRODUTO_LINHA_BASE_MAP[base]; }
+  for (const linha of Object.keys(LINE_KEYWORDS)) {
+    for (const kw of LINE_KEYWORDS[linha]) {
+      if (norm(kw) && n.includes(norm(kw))) { eqLinhaLookupStats.palavraChave++; return linha; }
+    }
+  }
+  eqLinhaLookupStats.naoClassificado++;
+  return 'NÃO CLASSIFICADO';
+}
+
+let eqFilters   = { eqEmpresa: new Set(), eqAno: new Set(), eqMes: new Set(), eqCliente: new Set(), eqLinha: new Set() };
+let eqAllValues = { eqEmpresa: [], eqAno: [], eqMes: [], eqCliente: [], eqLinha: [] };
+let eqSearchQueries = { eqEmpresa: '', eqAno: '', eqMes: '', eqCliente: '', eqLinha: '' };
 
 /* Recalcula o campo "faturamento" (valor EFETIVO usado por todo o
    dashboard — KPIs, gráficos, ranking, tabela, exportações, rateio de
    Despesas Adm. e cálculo de Impostos/Margens) a partir de
    "faturamentoBase" (valor puro e imutável da aba "Faturamento",
-   competência = VENCIMENTO), somando a Receita de Aluguéis (r.alugueis)
-   de cada linha SOMENTE quando incluirAlugueisNoFaturamento = true.
-   Precisa rodar SEMPRE antes de recalcResultados(), pois o Resultado
-   (Margem Bruta) é Faturamento − Insumos e depende do valor já ajustado. */
+   competência = VENCIMENTO). A Receita de Aluguéis (r.alugueis) NUNCA é
+   somada aqui — fica de fora do Faturamento-Base, sempre (ver
+   incluirAlugueisNoFaturamento, fixo em false). Precisa rodar SEMPRE
+   antes de recalcResultados(), pois o Resultado (Margem Bruta) é
+   Faturamento − Insumos e depende do valor já ajustado. */
 function recalcFaturamentoEfetivo(data) {
   data.forEach(r => {
-    r.faturamento = (r.faturamentoBase || 0) + (incluirAlugueisNoFaturamento ? (r.alugueis || 0) : 0);
-  });
-}
-
-/* Alterna se a Receita de Aluguéis entra no Faturamento-Base (e em tudo que
-   dele deriva). Recalcula faturamento efetivo + resultado de todo o
-   dataset e solicita atualização do dashboard — mesmo padrão já usado por
-   setAluguelIndefinidoFilter() para o seletor irmão "Equip. sem Locação". */
-function setAluguelNoFaturamento(v) {
-  incluirAlugueisNoFaturamento = (v === 'incluir');
-  if (!rawData.length) return;
-  recalcFaturamentoEfetivo(rawData);
-  recalcResultados(rawData);
-  requestDashboardRefresh({
-    showLoader: true,
-    message: 'Recalculando Faturamento, Impostos e rateio com Aluguéis…'
+    r.faturamento = (r.faturamentoBase || 0);
   });
 }
 
@@ -1993,20 +2261,18 @@ function setAluguelNoFaturamento(v) {
    aqui já propaga para o dashboard inteiro.
    IMPORTANTE: "faturamento" (= Faturamento-Base) tem como origem principal
    a aba "Faturamento" (competência = VENCIMENTO) — esse valor puro fica
-   preservado em "faturamentoBase" — e é o valor EFETIVO (faturamentoBase
-   + Aluguéis, quando o seletor "Aluguéis no Faturamento" estiver em
-   "Incluir" — ver recalcFaturamentoEfetivo()) que serve de referência para
-   Impostos, rateio de Despesas Administrativas e margens Bruta/Líquida.
-   "receitas" (= Receita Liquidada, ver r.receitas / cards e colunas
-   "Receita Liquidada") vem da aba "Receitas" (competência = LIQUIDAÇÃO) e é
-   um indicador à parte — NÃO compõe nem influencia o Faturamento-Base ou o
-   Resultado. A Inadimplência também NÃO compõe nem influencia o
-   Faturamento-Base ou o Resultado: é exibida apenas como parâmetro
-   comparativo (percentual sobre o Faturamento-Base) em seu próprio
-   card/coluna (r.inadimplencia). Os Aluguéis (r.alugueis) seguem a mesma
-   regra SOMENTE quando incluirAlugueisNoFaturamento = false (padrão); com
-   o seletor em "Incluir", eles passam a compor o Faturamento-Base e,
-   portanto, o Resultado. */
+   preservado em "faturamentoBase" e é também o valor EFETIVO usado como
+   referência para Impostos, rateio de Despesas Administrativas e margens
+   Bruta/Líquida (ver recalcFaturamentoEfetivo()). "receitas" (= Receita
+   Liquidada, ver r.receitas / cards e colunas "Receita Liquidada") vem da
+   aba "Receitas" (competência = LIQUIDAÇÃO) e é um indicador à parte —
+   NÃO compõe nem influencia o Faturamento-Base ou o Resultado. A
+   Inadimplência também NÃO compõe nem influencia o Faturamento-Base ou o
+   Resultado: é exibida apenas como parâmetro comparativo (percentual
+   sobre o Faturamento-Base) em seu próprio card/coluna (r.inadimplencia).
+   Os Aluguéis (r.alugueis) seguem a mesma regra, sempre: nunca compõem o
+   Faturamento-Base nem o Resultado — são exibidos apenas como indicador
+   informativo próprio (card "Receita de Aluguéis"). */
 function recalcResultados(data) {
   data.forEach(r => {
     r.resultado = r.faturamento - r.vendas;
@@ -2015,21 +2281,6 @@ function recalcResultados(data) {
 function setResultFilter(v) {
   resultFilter = v || 'all';
   if (typeof drawTable === 'function') drawTable();
-}
-/* Alterna se os equipamentos com "?" na coluna ALUGUEL/LOCAÇÃO R$ (aba
-   "Patrimônio aferido") entram no volume de equipamentos usado pelo rateio
-   de Despesas Administrativas. Reconstrói patrimonioCountByClient a partir
-   de patrimonioRaw (já carregado) e recalcula todo o dashboard — mesmo
-   caminho usado pelos demais filtros/parâmetros (ver requestDashboardRefresh
-   / recomputeAdminTotal, chamado dentro de renderDashboard). */
-function setAluguelIndefinidoFilter(v) {
-  incluirEquipAluguelIndefinido = (v === 'incluir');
-  if (!rawData.length) return;
-  patrimonioCountByClient = buildPatrimonioCountByClient(patrimonioRaw, incluirEquipAluguelIndefinido);
-  requestDashboardRefresh({
-    showLoader: true,
-    message: 'Recalculando rateio de despesas administrativas…'
-  });
 }
 function applyResultFilter(rows) {
   if (resultFilter === 'pos') return rows.filter(r => (r.resAj || 0) >= 0);
@@ -2217,16 +2468,26 @@ function updateAdmDisplay(value) {
    do cenário. Este é o TOTAL BASE (global) de Despesas Adm. — não sofre
    influência do filtro de Clientes, pois os lançamentos administrativos
    não são por cliente. É o "montante disponível" antes de qualquer
-   proração pelo escopo de clientes selecionado. */
-function computeDespesasAdmTotal() {
+   proração pelo escopo de clientes selecionado.
+   ✅ Aceita opcionalmente um escopo de Empresa/Ano/Mês próprio (empresaSet/
+   anoSet/mesSet) — por padrão usa os filtros do dashboard principal
+   (filters.empresa/ano/mes), mas o modal "Lucratividade por Linha" passa
+   o SEU PRÓPRIO escopo (eqFilters.eqEmpresa/eqAno/eqMes) para que o
+   numerador (esta base) e o denominador (computeReferenceFaturamento/
+   computeReferenceEquip, chamados com o mesmo escopo) fiquem sempre
+   consistentes entre si — ver nota em recomputeEqAdminTotal(). */
+function computeDespesasAdmTotal(empresaSet, anoSet, mesSet) {
   if (!despesasRaw.length) return 0;
+  const emp = empresaSet || filters.empresa;
+  const ano = anoSet     || filters.ano;
+  const mes = mesSet     || filters.mes;
   let total = 0;
   for (const r of despesasRaw) {
     if (
       filters.categoria.has(r.natureza) &&
-      filters.empresa.has(r.empresa) &&
-      filters.ano.has(r.year) &&
-      filters.mes.has(r.month)
+      emp.has(r.empresa) &&
+      ano.has(r.year) &&
+      mes.has(r.month)
     ) {
       total += r.valor;
     }
@@ -2556,14 +2817,21 @@ function handleFile(file) {
       setStatus('Extraindo Patrimônio Aferido…', 68);
       patrimonioRaw = processPatrimonio(wb);
       patrimonioCountByClient = buildPatrimonioCountByClient(patrimonioRaw, incluirEquipAluguelIndefinido);
+      updateImportOverlay('Extraindo Linha de Equipamentos…');
+      setStatus('Extraindo Linha de Equipamentos…', 71);
+      const linhasLookup = processLinhasLookup(wb);
+      PRODUTO_LINHA_MAP = linhasLookup.exato;
+      PRODUTO_LINHA_BASE_MAP = linhasLookup.base;
+      insumosEquipItemsRaw = processInsumosEquip(wb);
+      reclassifyInsumosEquip();
+      alugueisEquipRaw = processAlugueisEquip(wb);
       updateImportOverlay('Calculando resultados…');
       setStatus('Calculando resultados…', 75);
       rawData = data;
-      if (!rawData.length) throw new Error('Nenhum dado encontrado. Verifique se as abas Faturamento, Inadimplência, Vendas e Aluguéis existem e têm dados.');
-      // Aplica o estado atual do seletor "Aluguéis no Faturamento" (padrão:
-      // não incluir) e só então garante que "resultado" (Faturamento
-      // efetivo − Insumos) esteja calculado para todas as linhas do
-      // dataset recém-importado.
+      if (!rawData.length) throw new Error('Nenhum dado encontrado. Verifique se as abas Faturamento, Inadimplência, Custo de Vendas e Aluguéis existem e têm dados.');
+      // Garante que "faturamento" (efetivo, = faturamentoBase, sem
+      // Aluguéis) e "resultado" (Faturamento efetivo − Insumos) estejam
+      // calculados para todas as linhas do dataset recém-importado.
       recalcFaturamentoEfetivo(rawData);
       recalcResultados(rawData);
       // ✅ Correção: sem isto, o percentual inicial do campo (%) Impostos
@@ -2575,6 +2843,7 @@ function handleFile(file) {
       setStatus(`✅ ${rawData.length} registros carregados | Faturamento-Base: R$ ${totalFat.toLocaleString('pt-BR',{minimumFractionDigits:2})}`, 90);
       buildFilterOptions();
       buildPatrimonioFilterOptions();
+      buildEqFilterOptions();
       setTimeout(() => {
         setStatus('Pronto!', 100);
         setTimeout(() => { hideDashboardRecalc(); showDashboard(); }, 300);
@@ -2629,6 +2898,38 @@ function norm(s) {
   const suffix = /(?:\s*-\s*)?\s*\b(ME|EPP|EIRELI|MEI)\s*$/;
   while (suffix.test(out)) out = out.replace(suffix, '').trim();
   return out.replace(/[\.,;]+$/g, '').trim();
+}
+
+/* Correção para clientes cuja razão social aparece com MAIS DE UMA
+   grafia/abreviação entre as abas da planilha (ex.: "LAB. BLESSING
+   ANALISES CLIN E ANAT PATOLOGICA LTDA" na aba Insumos vs. "LABORATORIO
+   BLESSING ANALISES CLIN E ANAT. PAT LTDA" na aba Faturamento) — norm()
+   sozinho NÃO resolve isso, porque a diferença não é de acento/caixa/
+   espaço/sufixo societário, é uma abreviação diferente da razão social
+   ("LAB." x "LABORATORIO", "ANAT" x "ANAT.", "PATOLOGICA" x "PAT").
+   Sem esta correção, o mesmo cliente real vira DOIS clientes distintos
+   em todo o app (Faturamento, Insumos, Aluguéis, Patrimônio, ranking,
+   filtros) — cada um só com uma fatia dos dados —, o que pode fazer um
+   dos dois aparecer com Faturamento alto e Insumos ~zero (ou o
+   contrário) e, no modal de Lucratividade por Linha, uma Linha
+   aparentar consumo zero para o cliente quando na verdade o consumo
+   estava lançado sob a OUTRA grafia (foi exatamente o caso relatado
+   para "Blessing" + Gasometria: R$ 1.842.405,95 brutos de Insumos em
+   Gasometria estavam divididos entre as duas grafias, e filtrar por
+   apenas uma delas mostrava só uma fração — ou zero). Mapa editável:
+   cada entrada aponta a grafia NÃO-canônica (já após norm()) para a
+   grafia canônica (também após norm()) que deve ser usada em todo o
+   app. A canônica escolhida é a que domina a aba Faturamento (fonte
+   de receita), para o nome exibido bater com o que a maior parte da
+   planilha já usa. Descoberta uma correspondência nova, basta
+   adicionar uma linha aqui — não precisa mexer em mais nada. */
+const CLIENT_ALIAS_MAP = {
+  'LABORATORIO BLESSING ANALISES CLIN E ANAT. PAT LTDA': 'LAB. BLESSING ANALISES CLIN E ANAT PATOLOGICA LTDA',
+  'FUNDACAO EDUCACIONAL DOM ANDRE ARCOVERDE': 'FUNDACAO EDUCACIONAL D ANDRE ARCOVERDE',
+};
+function canonCliente(rawName) {
+  const n = norm(rawName);
+  return CLIENT_ALIAS_MAP[n] || n;
 }
 
 /* Converte qualquer representação de data do SheetJS em Date JS.
@@ -2757,7 +3058,7 @@ function processWorkbook(wb) {
   const faturamentoRows = readSheet(wb, 'Faturamento')
     .filter(r => !isNaoCliente(fk(r,'NÃO CLIENTE','NAO CLIENTE','Não Cliente','Nao Cliente')))
     .map(r => ({
-      cliente:  norm(fk(r,'CLIENTE')),
+      cliente:  canonCliente(fk(r,'CLIENTE')),
       empresa:  norm(fk(r,'EMPRESA')),
       valor:    toNum(fk(r,'VALOR')),
       data:     toDate(fk(r,'VENCIMENTO')),
@@ -2782,7 +3083,7 @@ function processWorkbook(wb) {
   const receitasLiquidadasRows = readSheet(wb, 'Receitas')
     .filter(r => !isNaoCliente(fk(r,'NÃO CLIENTE','NAO CLIENTE','Não Cliente','Nao Cliente')))
     .map(r => ({
-      cliente:  norm(fk(r,'CLIENTE')),
+      cliente:  canonCliente(fk(r,'CLIENTE')),
       empresa:  norm(fk(r,'EMPRESA')),
       valor:    toNum(fk(r,'VALOR')),
       data:     toDate(fk(r,'LIQUIDAÇÃO','LIQUIDACAO','Liquidação','Liquidacao')),
@@ -2791,7 +3092,7 @@ function processWorkbook(wb) {
 
   // ── Inadimplência
   const inad = readSheet(wb, 'Inadimplência').map(r => ({
-    cliente:  norm(fk(r,'CLIENTE')),
+    cliente:  canonCliente(fk(r,'CLIENTE')),
     empresa:  norm(fk(r,'EMPRESA')),
     valor:    toNum(fk(r,'VALOR')),
     data:     toDate(fk(r,'VENCIMENTO')),
@@ -2800,9 +3101,13 @@ function processWorkbook(wb) {
 
   // ── Vendas (a planilha agora traz a coluna EMPRESA — usar quando existir)
   // Regra de negócio: registros que possuírem QUALQUER valor na coluna I
-  // (índice 8) da aba Vendas devem ser EXCLUÍDOS do cômputo do faturamento.
-  const _vendasWs = wb.Sheets['Vendas'];
-  if (!_vendasWs) throw new Error('Aba "Vendas" não encontrada na planilha.');
+  // (índice 8) da aba Custo de Vendas devem ser EXCLUÍDOS do cômputo do
+  // faturamento.
+  // ✅ A aba foi renomeada de "Vendas" para "Custo de Vendas" na planilha-
+  // fonte (mantém compatibilidade retroativa: se a planilha carregada ainda
+  // usar o nome antigo "Vendas", o app continua funcionando normalmente).
+  const _vendasWs = wb.Sheets['Custo de Vendas'] || wb.Sheets['Vendas'];
+  if (!_vendasWs) throw new Error('Aba "Custo de Vendas" não encontrada na planilha.');
   const _vendasAoA = XLSX.utils.sheet_to_json(_vendasWs, { header: 1, defval: null, raw: true });
   const _vHeader = (_vendasAoA[0] || []).map(h => (h == null ? '' : String(h)));
   const _hasColI = (v) => {
@@ -2816,7 +3121,7 @@ function processWorkbook(wb) {
       const obj = {};
       _vHeader.forEach((h, i) => { if (h) obj[h] = row[i]; });
       return {
-        cliente:       norm(fk(obj,'Cliente','CLIENTE')),
+        cliente:       canonCliente(fk(obj,'Cliente','CLIENTE')),
         empresa:       norm(fk(obj,'EMPRESA','Empresa')),
         valorTotal:    toNum(fk(obj,'Valor Total','VALOR TOTAL')),
         valorDesconto: toNum(fk(obj,'Valor Desconto','VALOR DESCONTO')),
@@ -2827,7 +3132,7 @@ function processWorkbook(wb) {
 
   // ── Aluguéis
   const alugueis = readSheet(wb, 'Aluguéis').map(r => ({
-    cliente:    norm(fk(r,'CLIENTE')),
+    cliente:    canonCliente(fk(r,'CLIENTE')),
     fornecedor: norm(fk(r,'FORNECEDOR')),
     valor:      toNum(fk(r,'VALOR')),
     data:       toDate(fk(r,'EMISSÃO','EMISSAO','Emissão','Emissao')),
@@ -2969,9 +3274,8 @@ function processWorkbook(wb) {
     //   nunca compõem nem influenciam este total: são apuradas à parte e
     //   exibidas apenas como parâmetros comparativos em relação ao
     //   Faturamento-Base, em seu próprio card/coluna. Os Aluguéis
-    //   (row.alugueis) só passam a compor o Faturamento-Base (via campo
-    //   "faturamento" efetivo) quando o seletor "Aluguéis no Faturamento"
-    //   estiver em "Incluir" — ver recalcFaturamentoEfetivo().
+    //   (row.alugueis) NUNCA compõem o Faturamento-Base (nem o campo
+    //   "faturamento" efetivo) — ver recalcFaturamentoEfetivo().
     const faturamentoBase = row.faturamento;
     return {
       ...row,
@@ -3067,7 +3371,7 @@ function processPatrimonio(wb) {
 }
 
 /* Monta o mapa "quantidade de equipamentos por cliente" a partir das
-   linhas da aba "Patrimônio aferido", usando norm(r.cliente) como chave —
+   linhas da aba "Patrimônio aferido", usando canonCliente(r.cliente) como chave —
    a MESMA normalização (maiúsculas, sem acento, sem sufixo societário)
    aplicada ao CLIENTE das demais abas (Faturamento/Receitas/Inadimplência/
    Vendas/Aluguéis), garantindo que o total bata com o cliente exibido no
@@ -3084,7 +3388,7 @@ function buildPatrimonioCountByClient(rows, incluirAluguelIndefinido = true) {
   const map = {};
   (rows || []).forEach(r => {
     if (!incluirAluguelIndefinido && r.aluguelIndefinido) return;
-    const k = norm(r.cliente);
+    const k = canonCliente(r.cliente);
     if (!k) return;
     map[k] = (map[k] || 0) + 1;
   });
@@ -3097,6 +3401,175 @@ function buildPatrimonioCountByClient(rows, incluirAluguelIndefinido = true) {
 function patClienteUnidadeKey(r) {
   if (r.cliente && r.unidade) return `${r.cliente} — ${r.unidade}`;
   return r.cliente || r.unidade || '(Sem identificação)';
+}
+
+/* Deriva a EMPRESA a partir da "Razão Social" da aba Insumos (não existe
+   coluna EMPRESA nessa aba) — mesmo padrão de nomes curtos usado no resto
+   do dashboard (LABMEDIC/DIAG RIO/NOVATEST); qualquer outra razão social
+   cai no próprio texto (trimado), para nunca perder o lançamento. */
+function empresaFromRazaoSocial(rs) {
+  const n = norm(rs);
+  if (n.includes('LABMEDIC'))  return 'LABMEDIC';
+  if (n.includes('DIAG RIO'))  return 'DIAG RIO';
+  if (n.includes('NOVATEST'))  return 'NOVATEST';
+  return rs ? String(rs).trim() : '';
+}
+
+/* Lê a aba "Insumos" (notas fiscais item a item — layout hierárquico:
+   uma linha de CABEÇALHO DA NOTA [Cliente/Razão Social/Valor Total/Valor
+   Desconto/Data de saída preenchidos], seguida de uma linha de
+   sub-cabeçalho ("Produto","Código"...) e das linhas de ITEM da nota
+   [Produto/Qtde./Valor Total do item], até a próxima nota). Devolve uma
+   linha por ITEM (granularidade fina, SEM classificar linha ainda — ver
+   reclassifyInsumosEquip): o valor líquido da nota (Valor Total − Valor
+   Desconto) é distribuído entre os itens PROPORCIONALMENTE ao Valor
+   Total de cada item (mesmo princípio já usado em computeRowAdjustments
+   para o rateio de Despesas Administrativas — evita tanto perder quanto
+   duplicar valor). Manter a granularidade de item (em vez de já agrupar
+   por linha aqui) é o que permite reclassificar dinamicamente quando o
+   usuário edita o dicionário de palavras-chave, sem precisar reimportar
+   a planilha. Notas sem nenhum item (raro) caem inteiras num item
+   "produto: null" (→ sempre NÃO CLASSIFICADO), preservando o valor. */
+function processInsumosEquip(wb) {
+  const sheetName = ['Insumos'].find(n => wb.Sheets[n]);
+  if (!sheetName) { insumosSheetFound = false; return []; }
+  insumosSheetFound = true;
+  const aoa = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: null, raw: true });
+  const out = [];
+
+  let cur = null; // nota em processamento: { cliente, empresa, year, month, valorLiquido, items:[{produto,valor}] }
+  const flushInvoice = () => {
+    if (!cur) return;
+    const items = cur.items;
+    const sumItens = items.reduce((s,it) => s + (it.valor || 0), 0);
+    if (!items.length || sumItens === 0) {
+      out.push({ cliente: canonCliente(cur.cliente), clienteDisplay: cur.cliente, empresa: cur.empresa,
+                 year: cur.year, month: cur.month, produto: null, valor: cur.valorLiquido });
+    } else {
+      items.forEach(it => {
+        const share = it.valor / sumItens;
+        out.push({ cliente: canonCliente(cur.cliente), clienteDisplay: cur.cliente, empresa: cur.empresa,
+                   year: cur.year, month: cur.month, produto: it.produto, valor: cur.valorLiquido * share });
+      });
+    }
+    cur = null;
+  };
+
+  for (let i = 1; i < aoa.length; i++) { // pula a linha de cabeçalho (índice 0)
+    const row = aoa[i];
+    if (!row) continue;
+    const clienteRaw = row[14];
+    if (clienteRaw) {
+      // Nova nota — fecha a anterior (se houver) antes de começar.
+      flushInvoice();
+      const situacao = norm(row[21]);
+      if (situacao.includes('CANCEL')) { cur = null; continue; } // nota cancelada: ignora inteira
+      const d = toDate(row[18]) || toDate(row[20]); // Data de saída, fallback Data Emissão
+      if (!d) continue; // sem data não dá para atribuir competência — descarta (mesmo critério do resto do app)
+      const valorTotal = toNum(row[17]);
+      const valorDesc  = toNum(row[16]);
+      cur = {
+        cliente: String(clienteRaw).trim(),
+        empresa: empresaFromRazaoSocial(row[15]),
+        year: d.getUTCFullYear(), month: d.getUTCMonth() + 1,
+        valorLiquido: valorTotal - valorDesc,
+        items: [],
+      };
+      continue;
+    }
+    if (row[0] === 'Produto') continue; // linha de sub-cabeçalho da tabela de itens
+    if (cur && row[0]) {
+      cur.items.push({ produto: String(row[0]).trim(), valor: toNum(row[11]) });
+    }
+  }
+  flushInvoice();
+  console.log(`[Grupo Labmedic] Insumos (Linha de Equipamentos): ${out.length} itens | Soma: R$ ${out.reduce((s,r)=>s+r.valor,0).toFixed(2)}`);
+  return out;
+}
+
+/* Reclassifica TODOS os itens da aba Insumos já lidos (insumosEquipItemsRaw)
+   contra o dicionário LINE_KEYWORDS atual, produzindo insumosEquipRaw (uma
+   linha por item, já com "linha" resolvida) e eqUnclassified (valor por
+   produto que não bateu com nenhuma palavra-chave). Roda uma vez após a
+   importação da planilha e de novo, instantaneamente (sem reimportar o
+   arquivo), toda vez que o usuário adiciona/remove uma palavra-chave no
+   painel "Classificação de Linha" do modal — é isso que torna a busca
+   pela linha "dinâmica" mesmo com o conteúdo da planilha mudando com o
+   tempo: item novo que contenha um termo já cadastrado é classificado
+   automaticamente; item com termo desconhecido cai em "NÃO CLASSIFICADO"
+   e aparece no painel para o usuário ensinar a palavra-chave que faltou. */
+function reclassifyInsumosEquip() {
+  insumosEquipRaw = [];
+  eqUnclassified = {};
+  eqLinhaLookupStats = { exato: 0, base: 0, palavraChave: 0, naoClassificado: 0 };
+  insumosEquipItemsRaw.forEach(it => {
+    const linha = classifyLinha(it.produto);
+    insumosEquipRaw.push({ cliente: it.cliente, clienteDisplay: it.clienteDisplay, empresa: it.empresa,
+                            year: it.year, month: it.month, linha, valor: it.valor });
+    if (linha === 'NÃO CLASSIFICADO' && it.produto) {
+      eqUnclassified[it.produto] = (eqUnclassified[it.produto] || 0) + it.valor;
+    }
+  });
+}
+
+/* Lê a aba "Aluguéis" (mesmos critérios já usados no dashboard principal
+   para o KPI "Aluguéis": CLIENTE/VALOR/EMISSÃO/FORNECEDOR→EMPRESA), com o
+   campo adicional "linha" (coluna LINHA, normalizada via
+   canonLinha). Parse independente do já feito em processWorkbook()
+   para o card principal — este é dedicado ao modal de Linha de
+   Equipamentos e nunca altera o KPI "Aluguéis" do dashboard principal. */
+function processAlugueisEquip(wb) {
+  if (!wb.Sheets['Aluguéis']) return [];
+  return readSheet(wb, 'Aluguéis').map(r => {
+    const clienteRaw = fk(r, 'CLIENTE');
+    const d = toDate(fk(r, 'EMISSÃO', 'EMISSAO'));
+    return {
+      cliente: canonCliente(clienteRaw),
+      clienteDisplay: clienteRaw ? String(clienteRaw).trim() : '',
+      empresa: fk(r, 'FORNECEDOR') ? String(fk(r, 'FORNECEDOR')).trim() : '',
+      year: d ? d.getUTCFullYear() : null,
+      month: d ? d.getUTCMonth() + 1 : null,
+      linha: canonLinha(fk(r, 'LINHA')),
+      valor: toNum(fk(r, 'VALOR')),
+    };
+  }).filter(r => r.cliente && r.year && r.month);
+}
+
+/* Lê a aba "Linhas" da planilha (referência PRODUTO → LINHA, mantida à
+   parte pelo usuário) e monta os dois dicionários de apoio usados por
+   classifyLinha() para classificar os itens da aba "Insumos":
+   - PRODUTO_LINHA_MAP: nome do produto normalizado (com lote/validade,
+     igual ao texto da aba Insumos) → Linha canônica. Casamento exato.
+   - PRODUTO_LINHA_BASE_MAP: nome-base do produto (sem LOTE/VALIDADE,
+     ver baseProdutoKey) → Linha canônica, incluído SÓ quando todas as
+     variações de lote daquele nome-base na aba "Linhas" apontam para a
+     MESMA Linha — evita generalizar errado quando o mesmo nome-base
+     aparece com Linhas diferentes na planilha (raro; nesses casos o item
+     cai para a camada de palavra-chave em vez de arriscar um match
+     ambíguo). Isso é o que permite continuar classificando
+     automaticamente um produto já conhecido mesmo quando chega um lote
+     novo que ainda não foi cadastrado na aba "Linhas". */
+function processLinhasLookup(wb) {
+  const exato = {};
+  const baseGrupos = {}; // nome-base → Set de Linhas distintas vistas
+  if (!wb.Sheets['Linhas']) return { exato, base: {} };
+  readSheet(wb, 'Linhas').forEach(r => {
+    const produto = fk(r, 'PRODUTO');
+    const linhaRaw = fk(r, 'LINHA');
+    if (!produto || !linhaRaw) return;
+    const linha = canonLinha(linhaRaw);
+    exato[norm(produto)] = linha;
+    const base = baseProdutoKey(produto);
+    if (!base) return;
+    if (!baseGrupos[base]) baseGrupos[base] = new Set();
+    baseGrupos[base].add(linha);
+  });
+  const base = {};
+  Object.keys(baseGrupos).forEach(k => {
+    if (baseGrupos[k].size === 1) base[k] = [...baseGrupos[k]][0];
+  });
+  console.log(`[Grupo Labmedic] Aba "Linhas": ${Object.keys(exato).length} produto(s) mapeado(s) (exato), ${Object.keys(base).length} nome(s)-base sem ambiguidade`);
+  return { exato, base };
 }
 
 /* ══════════════════════════════════════════════════════
@@ -4318,13 +4791,9 @@ function resetDashboard() {
   document.getElementById('upload-screen').style.display = 'flex';
   document.getElementById('dashboard').style.display = 'none';
   rawData = []; despesasRaw = []; patrimonioRaw = []; patrimonioSheetFound = false;
+  insumosEquipRaw = []; insumosEquipItemsRaw = []; alugueisEquipRaw = []; insumosSheetFound = false; eqUnclassified = {};
+  PRODUTO_LINHA_MAP = {}; PRODUTO_LINHA_BASE_MAP = {}; eqLinhaLookupStats = { exato: 0, base: 0, palavraChave: 0, naoClassificado: 0 };
   patrimonioCountByClient = {};
-  incluirEquipAluguelIndefinido = false;
-  const selAluguelIndefinido = document.getElementById('select-aluguel-indefinido');
-  if (selAluguelIndefinido) selAluguelIndefinido.value = 'excluir';
-  incluirAlugueisNoFaturamento = false;
-  const selAluguelFaturamento = document.getElementById('select-aluguel-faturamento');
-  if (selAluguelFaturamento) selAluguelFaturamento.value = 'excluir';
   filters = { empresa:new Set(), ano:new Set(), mes:new Set(), cliente:new Set(), categoria:new Set() };
   patFilters = { patCliente: new Set(), patUnidade: new Set(), patCategoria: new Set(), patEquipamento: new Set(), patRegiao: new Set() };
   patDateFrom = null; patDateTo = null;
@@ -4393,7 +4862,7 @@ function renderKPIs(data) {
       <span class="kpi-icon">📈</span>
       <div class="kpi-label">Faturamento-Base</div>
       <div class="kpi-value" style="font-size:${kpiFontSize(fmtR(fat))}">${fmtR(fat)}</div>
-      <div class="kpi-sub">${fat>0?fmtPct(1):'-'} do total consolidado${incluirAlugueisNoFaturamento?' · inclui Aluguéis':''}</div>
+      <div class="kpi-sub">${fat>0?fmtPct(1):'-'} do total consolidado</div>
     </div>
     <div class="kpi-card green fade-in fade-in-d1">
       <span class="kpi-icon">✅</span>
@@ -4411,7 +4880,7 @@ function renderKPIs(data) {
       <span class="kpi-icon">🏠</span>
       <div class="kpi-label">Receita de Aluguéis</div>
       <div class="kpi-value" style="font-size:${kpiFontSize(fmtR(alug))}">${fmtR(alug)}</div>
-      <div class="kpi-sub">${fat>0?fmtPct(alug/fat):'-'} do faturamento${incluirAlugueisNoFaturamento?' · já incluído no Faturamento-Base':' · não incluído no Faturamento-Base'}</div>
+      <div class="kpi-sub">${fat>0?fmtPct(alug/fat):'-'} do faturamento · não incluído no Faturamento-Base</div>
     </div>
     <div class="kpi-card amber fade-in fade-in-d3">
       <span class="kpi-icon">🧪</span>
@@ -4501,7 +4970,7 @@ function renderMonthlyChart(data) {
           borderColor:'#F59E0B', borderWidth:2, tension:.4,
           pointRadius: isBar?0:3,
         },
-        { label:'Resultado', data:resArr,
+        { label:'Margem Bruta', data:resArr,
           backgroundColor: isBar?'rgba(16,185,129,.6)':'transparent',
           borderColor:'#10B981', borderWidth:2, tension:.4,
           pointRadius: isBar?0:3,
@@ -4568,7 +5037,7 @@ function renderEmpresaResultChart(data) {
       datasets:[
         { label:'Faturamento',    data:labels.map(k=>byEmp[k].fat),  backgroundColor:'rgba(59,130,246,.6)', borderColor:'#3B82F6', borderWidth:1 },
         { label:'Insumos',        data:labels.map(k=>byEmp[k].vend), backgroundColor:'rgba(245,158,11,.6)', borderColor:'#F59E0B', borderWidth:1 },
-        { label:'Resultado',      data:labels.map(k=>byEmp[k].res),  backgroundColor: labels.map(k=>byEmp[k].res>=0?'rgba(16,185,129,.6)':'rgba(239,68,68,.6)'), borderColor:labels.map(k=>byEmp[k].res>=0?'#10B981':'#EF4444'), borderWidth:1 },
+        { label:'Margem Bruta',      data:labels.map(k=>byEmp[k].res),  backgroundColor: labels.map(k=>byEmp[k].res>=0?'rgba(16,185,129,.6)':'rgba(239,68,68,.6)'), borderColor:labels.map(k=>byEmp[k].res>=0?'#10B981':'#EF4444'), borderWidth:1 },
       ]
     },
     options: chartOptions({ stacked:false, y:'R$' })
@@ -4598,7 +5067,7 @@ function renderEmpresaLucratividadeChart(data) {
       labels,
       datasets: [
         {
-          label: 'Resultado Ajustado',
+          label: 'Resultado',
           data: topRows.map(r => r.resAj),
           backgroundColor: topRows.map(r => r.name === activeClient ? 'rgba(59,130,246,.85)' : (r.resAj >= 0 ? 'rgba(16,185,129,.72)' : 'rgba(239,68,68,.68)')),
           borderColor: topRows.map(r => r.name === activeClient ? '#3B82F6' : (r.resAj >= 0 ? '#10B981' : '#EF4444')),
@@ -4633,7 +5102,7 @@ function renderEmpresaLucratividadeChart(data) {
             label: ctx => {
               const row = topRows[ctx.dataIndex];
               return [
-                ` Resultado Ajustado: ${fmtR(row.resAj)}`,
+                ` Resultado: ${fmtR(row.resAj)}`,
                 ` Faturamento: ${fmtR(row.fat)}`,
                 ` Lucratividade: ${fmtPct(row.margemAj)}`,
                 ` Empresa: ${row.emp}`
@@ -4828,7 +5297,7 @@ function renderTable(data) {
     };
   });
   // Impostos/adm já vieram somados por linha (computeRowAdjustments) em
-  // "rows" — só falta o Resultado Ajustado e a Lucratividade de cada
+  // "rows" — só falta o Resultado e a Lucratividade de cada
   // cliente.
   rows.forEach(r => {
     r.resAj = r.res - r.impostos - r.adm;
@@ -5259,7 +5728,7 @@ function buildClientDetail(clientKey, emp) {
     {
       tone: totals.resAj >= 0 ? 'good' : 'danger',
       title: 'Rentabilidade consolidada',
-      text: `Resultado ajustado de ${fmtR(totals.resAj)} (${fmtPct(adjMargin)} do faturamento), com resultado bruto de ${fmtR(totals.res)}.`
+      text: `Resultado de ${fmtR(totals.resAj)} (${fmtPct(adjMargin)} do faturamento), com margem bruta de ${fmtR(totals.res)}.`
     },
     {
       tone: inadRate > 0.12 ? 'danger' : inadRate > 0.06 ? 'warn' : 'good',
@@ -5270,8 +5739,8 @@ function buildClientDetail(clientKey, emp) {
       tone: faturamentoTrend >= 0 ? 'good' : 'warn',
       title: 'Sazonalidade e momento',
       text: monthly.length > 1
-        ? `Melhor mês: ${bestMonth.label} (${fmtR(bestMonth.resAj)} ajustado). Pior mês: ${worstMonth.label} (${fmtR(worstMonth.resAj)} ajustado). O último período está ${faturamentoTrend >= 0 ? 'acima' : 'abaixo'} do primeiro em ${fmtPct(Math.abs(faturamentoTrend))}.`
-        : `Período único no cenário filtrado. Resultado ajustado do mês: ${fmtR(bestMonth.resAj)}.`
+        ? `Melhor mês: ${bestMonth.label} (${fmtR(bestMonth.resAj)}). Pior mês: ${worstMonth.label} (${fmtR(worstMonth.resAj)}). O último período está ${faturamentoTrend >= 0 ? 'acima' : 'abaixo'} do primeiro em ${fmtPct(Math.abs(faturamentoTrend))}.`
+        : `Período único no cenário filtrado. Resultado do mês: ${fmtR(bestMonth.resAj)}.`
     }
   ];
 
@@ -5309,14 +5778,14 @@ function buildClientDetail(clientKey, emp) {
 }
 /* ── Equipamentos do cliente, agrupados por categoria (modal de detalhes) ──
    Lê a aba "Patrimônio aferido" (patrimonioRaw) filtrando pelo mesmo
-   clientKey normalizado usado no ranking principal (norm(r.cliente) ===
-   clientKey — mesma chave já usada por buildPatrimonioCountByClient).
+   clientKey canônico usado no ranking principal (canonCliente(r.cliente)
+   === clientKey — mesma chave já usada por buildPatrimonioCountByClient).
    Categorias são ordenadas por volume (quantidade de equipamentos)
    decrescente entre si; dentro de cada categoria, os equipamentos também
    são ordenados por volume decrescente. Não interfere em nenhum filtro
    ou estado do modal "Métricas de Patrimônio" (independente). */
 function buildClientEquipmentGroups(clientKey) {
-  const rows = (patrimonioRaw || []).filter(r => norm(r.cliente) === clientKey);
+  const rows = (patrimonioRaw || []).filter(r => canonCliente(r.cliente) === clientKey);
   const catMap = {};
   rows.forEach(r => {
     const categoria = r.categoria || '—';
@@ -5518,10 +5987,10 @@ function buildClientOverviewHTML(detail) {
                 <th style="text-align:right">Inadimplência</th>
                 <th style="text-align:right">Insumos</th>
                 <th style="text-align:right">Aluguéis</th>
-                <th style="text-align:right">Resultado</th>
+                <th style="text-align:right">Margem Bruta</th>
                 <th style="text-align:right">Impostos</th>
                 <th style="text-align:right">Adm</th>
-                <th style="text-align:right">Res. Ajust.</th>
+                <th style="text-align:right">Resultado</th>
               </tr>
             </thead>
             <tbody>${monthlyRows}</tbody>
@@ -5775,8 +6244,8 @@ function buildClientReportHTML(detail) {
       <div class="content">
         <div class="kpis">
           <div class="kpi"><div class="kpi-label">Faturamento</div><div class="kpi-value">${fmtR(detail.totals.fat)}</div></div>
-          <div class="kpi"><div class="kpi-label">Resultado bruto</div><div class="kpi-value ${detail.totals.res >= 0 ? 'green' : 'red'}">${fmtR(detail.totals.res)}</div></div>
-          <div class="kpi"><div class="kpi-label">Resultado ajustado</div><div class="kpi-value ${detail.totals.resAj >= 0 ? 'green' : 'red'}">${fmtR(detail.totals.resAj)}</div></div>
+          <div class="kpi"><div class="kpi-label">Margem Bruta</div><div class="kpi-value ${detail.totals.res >= 0 ? 'green' : 'red'}">${fmtR(detail.totals.res)}</div></div>
+          <div class="kpi"><div class="kpi-label">Resultado</div><div class="kpi-value ${detail.totals.resAj >= 0 ? 'green' : 'red'}">${fmtR(detail.totals.resAj)}</div></div>
           <div class="kpi"><div class="kpi-label">Receitas</div><div class="kpi-value green">${fmtR(detail.totals.rec)}</div></div>
           <div class="kpi"><div class="kpi-label">Inadimplência</div><div class="kpi-value red">${fmtR(detail.totals.inad)}</div></div>
           <div class="kpi"><div class="kpi-label">Aluguéis</div><div class="kpi-value purple">${fmtR(detail.totals.alug)}</div></div>
@@ -5814,10 +6283,10 @@ function buildClientReportHTML(detail) {
                   <th class="r">Inadimpl.</th>
                   <th class="r">Insumos</th>
                   <th class="r">Aluguéis</th>
-                  <th class="r">Resultado</th>
+                  <th class="r">Margem Bruta</th>
                   <th class="r">Impostos</th>
                   <th class="r">Adm</th>
-                  <th class="r">Res. Ajust.</th>
+                  <th class="r">Resultado</th>
                   <th class="r" style="background:#1D4ED8">Lucratividade %</th>
                 </tr>
               </thead>
@@ -5838,10 +6307,10 @@ function buildClientReportHTML(detail) {
                   <th class="r">Inadimpl.</th>
                   <th class="r">Insumos</th>
                   <th class="r">Aluguéis</th>
-                  <th class="r">Resultado</th>
+                  <th class="r">Margem Bruta</th>
                   <th class="r">Impostos</th>
                   <th class="r">Adm</th>
-                  <th class="r">Res. Ajust.</th>
+                  <th class="r">Resultado</th>
                   <th class="r" style="background:#1D4ED8">Lucratividade %</th>
                 </tr>
               </thead>
@@ -5889,7 +6358,7 @@ function renderClientLucratividadeChart(detail) {
       datasets: [
         { type: 'bar', label: 'Lucratividade (%)', data: lucData, backgroundColor: barColors, borderColor: barBorders, borderWidth: 1.2, borderRadius: 6, yAxisID: 'y', order: 2 },
         { type: 'line', label: 'Faturamento (R$)', data: fatData, borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,.15)', borderWidth: 2, tension: 0.32, pointRadius: 3, pointBackgroundColor: '#3B82F6', yAxisID: 'y1', order: 1 },
-        { type: 'line', label: 'Resultado ajustado (R$)', data: resAjData, borderColor: '#8B5CF6', backgroundColor: 'rgba(139,92,246,.10)', borderWidth: 2, borderDash: [5,4], tension: 0.32, pointRadius: 3, pointBackgroundColor: '#8B5CF6', yAxisID: 'y1', order: 1 }
+        { type: 'line', label: 'Resultado (R$)', data: resAjData, borderColor: '#8B5CF6', backgroundColor: 'rgba(139,92,246,.10)', borderWidth: 2, borderDash: [5,4], tension: 0.32, pointRadius: 3, pointBackgroundColor: '#8B5CF6', yAxisID: 'y1', order: 1 }
       ]
     },
     options: {
@@ -6041,7 +6510,7 @@ function exportXLSX() {
 
   // ── Sheet 1: Ranking por Empresa Emissora
   const empRows = [
-    ['#','Empresa','Receitas (R$)','Inadimplência (R$)','Faturamento (R$)','Insumos (R$)','Aluguéis (R$)','Resultado (R$)','Impostos (R$)','Custo Adm. (R$)','Resultado Ajustado (R$)','Lucratividade (%)'],
+    ['#','Empresa','Receitas (R$)','Inadimplência (R$)','Faturamento (R$)','Insumos (R$)','Aluguéis (R$)','Margem Bruta (R$)','Impostos (R$)','Custo Adm. (R$)','Resultado (R$)','Lucratividade (%)'],
     ...empresa.map(e=>[e.rank, e.emp, e.rec, e.inad, e.fat, e.vend, e.alug, e.res, e.impostos, e.adm, e.resAj, +(e.lucratividade*100).toFixed(4)]),
     ['TOTAL','',
       empresa.reduce((s,r)=>s+r.rec,0),
@@ -6061,7 +6530,7 @@ function exportXLSX() {
 
   // ── Sheet 2: Ranking por Cliente
   const cliRows = [
-    ['#','Empresa','Cliente','Lucratividade (%)','Equipamentos','Faturamento (R$)','Receitas (R$)','Inadimplência (R$)','Insumos (R$)','Aluguéis (R$)','Resultado (R$)','Impostos (R$)','Custo Adm. (R$)','Resultado Ajustado (R$)'],
+    ['#','Empresa','Cliente','Lucratividade (%)','Equipamentos','Faturamento (R$)','Receitas (R$)','Inadimplência (R$)','Insumos (R$)','Aluguéis (R$)','Margem Bruta (R$)','Impostos (R$)','Custo Adm. (R$)','Resultado (R$)'],
     ...clientAggFiltered.map((r,i)=>[
       i+1, r.emp, r.name,
       r.fat>0 ? +(r.resAj/r.fat*100).toFixed(4) : 0,
@@ -6074,7 +6543,7 @@ function exportXLSX() {
 
   // ── Sheet 3: Tendência Mensal
   const monRows = [
-    ['Ano','Mês','Competência','Faturamento (R$)','Insumos (R$)','Aluguéis (R$)','Resultado (R$)','Impostos (R$)','Custo Adm. (R$)','Resultado Ajustado (R$)'],
+    ['Ano','Mês','Competência','Faturamento (R$)','Insumos (R$)','Aluguéis (R$)','Margem Bruta (R$)','Impostos (R$)','Custo Adm. (R$)','Resultado (R$)'],
     ...monthly.map(m=>[m.year, MESES[m.month], m.label, m.fat, m.vend, m.alug, m.res, m.impostos, m.adm, m.resAj])
   ];
   const wsMon = XLSX.utils.aoa_to_sheet(monRows);
@@ -6082,7 +6551,7 @@ function exportXLSX() {
 
   // ── Sheet 4: Dados Detalhados
   const detRows = [
-    ['Empresa','Cliente','Ano','Mês','Receitas (R$)','Inadimplência (R$)','Faturamento (R$)','Insumos (R$)','Aluguéis (R$)','Resultado (R$)'],
+    ['Empresa','Cliente','Ano','Mês','Receitas (R$)','Inadimplência (R$)','Faturamento (R$)','Insumos (R$)','Aluguéis (R$)','Margem Bruta (R$)'],
     ...data.map(r=>[r.empresa, r.displayName, r.year, MESES[r.month], r.receitas, r.inadimplencia, r.faturamento, r.vendas, r.alugueis, r.resultado])
   ];
   const wsDet = XLSX.utils.aoa_to_sheet(detRows);
@@ -6363,7 +6832,7 @@ function exportPDF() {
     <div><strong>Anos:</strong> ${fAno} &nbsp;|&nbsp; <strong>Meses:</strong> ${fMes}</div>
     <div><strong>Clientes:</strong> ${fCli}</div>
     <div><strong>Categorias adm.:</strong> ${fCat}</div>
-    <div><strong>Desp. adm. do cenário:</strong> ${fmtR(gAdmEff)}</div>
+    <div><strong>Desp. adm. do cenário:</strong> ${fmtR(params.adminTotal || 0)}</div>
   </div>
 </div>
 
@@ -6377,7 +6846,7 @@ function exportPDF() {
   <div class="kpi"><div class="kpi-label">Clientes Ativos</div><div class="kpi-val">${nClients}</div></div>
   <div class="kpi"><div class="kpi-label">Impostos (${params.taxPct.toFixed(2).replace('.',',')}%)</div><div class="kpi-val red">${fmtR(totalImp)}</div></div>
   <div class="kpi"><div class="kpi-label">Desp. Administrativas</div><div class="kpi-val purple">${fmtR(totalAdm)}</div></div>
-  <div class="kpi"><div class="kpi-label">Resultado Ajustado</div><div class="kpi-val ${totalResAj>=0?'green':'red'}">${fmtR(totalResAj)}</div></div>
+  <div class="kpi"><div class="kpi-label">Resultado</div><div class="kpi-val ${totalResAj>=0?'green':'red'}">${fmtR(totalResAj)}</div></div>
 </div>
 
 <!-- ── TWO-COL: Empresa + Mensal -->
@@ -6387,8 +6856,8 @@ function exportPDF() {
     <table>
       <thead><tr>
         <th class="c">#</th><th>Empresa</th><th class="r">Receitas</th><th class="r">Inadimpl.</th>
-        <th class="r">Faturamento</th><th class="r">Insumos</th><th class="r">Aluguéis</th><th class="r">Resultado</th>
-        <th class="r">Impostos</th><th class="r">Adm</th><th class="r">Res. Ajust.</th><th class="r">Lucrat.</th>
+        <th class="r">Faturamento</th><th class="r">Insumos</th><th class="r">Aluguéis</th><th class="r">Margem Bruta</th>
+        <th class="r">Impostos</th><th class="r">Adm</th><th class="r">Resultado</th><th class="r">Lucrat.</th>
       </tr></thead>
       <tbody>${empRows}</tbody>
       <tfoot><tr>
@@ -6411,8 +6880,8 @@ function exportPDF() {
     <table>
       <thead><tr>
         <th class="c">Ano</th><th class="c">Mês</th>
-        <th class="r">Faturamento</th><th class="r">Insumos</th><th class="r">Aluguéis</th><th class="r">Resultado</th>
-        <th class="r">Impostos</th><th class="r">Adm</th><th class="r">Res. Ajust.</th>
+        <th class="r">Faturamento</th><th class="r">Insumos</th><th class="r">Aluguéis</th><th class="r">Margem Bruta</th>
+        <th class="r">Impostos</th><th class="r">Adm</th><th class="r">Resultado</th>
       </tr></thead>
       <tbody>${monthlyRows}</tbody>
     </table>
@@ -6421,15 +6890,15 @@ function exportPDF() {
 
 <!-- ── RANKING POR CLIENTE (new page) -->
 <div class="page-break">
-  <div class="section-title">Clientes Mais Lucrativos — Resultado Ajustado</div>
+  <div class="section-title">Clientes Mais Lucrativos — Resultado</div>
   <table>
     <thead><tr>
       <th class="c">#</th><th class="c">Empresa</th><th>Cliente</th>
       <th class="r">Lucratividade</th>
       <th class="c">Equipamentos</th>
       <th class="r">Faturamento</th><th class="r">Receitas</th><th class="r">Inadimpl.</th>
-      <th class="r">Insumos</th><th class="r">Aluguéis</th><th class="r">Resultado</th>
-      <th class="r">Impostos</th><th class="r">Adm</th><th class="r">Res. Ajust.</th>
+      <th class="r">Insumos</th><th class="r">Aluguéis</th><th class="r">Margem Bruta</th>
+      <th class="r">Impostos</th><th class="r">Adm</th><th class="r">Resultado</th>
     </tr></thead>
     <tbody>${tableRows}</tbody>
     <tfoot><tr>
@@ -6749,12 +7218,1014 @@ function buildEmpresaRankingAgg(data) {
   })).sort((a,b) => b.resAj - a.resAj || b.fat - a.fat).map((row, index) => ({ ...row, rank: index + 1 }));
 }
 
+/* ══════════════════════════════════════════════════════
+   MODAL — LUCRATIVIDADE POR LINHA DE EQUIPAMENTOS
+   Estado e filtros isolados (prefixo "eq"), mesmo padrão já usado no
+   modal de Patrimônio Aferido (prefixo "pat"). Comparação: para cada
+   CLIENTE ÚNICO dentro do filtro, Faturamento (aba Faturamento, nunca
+   fatiado por linha — essa aba não tem essa coluna) vs. Custo dos
+   Insumos (aba Insumos) + Aluguéis (aba Aluguéis), com o MESMO rateio de
+   Despesas Administrativas e % de Impostos já usados no resto do app. O
+   filtro "Linha" restringe QUAIS linhas de Insumos+Aluguéis entram na
+   soma de custo — não fatia o Faturamento.
+══════════════════════════════════════════════════════ */
+/* Mapa "chave canônica de cliente → nome de exibição preferido",
+   construído a partir da UNIÃO de clientes encontrados em rawData
+   (Faturamento) ∪ insumosEquipRaw ∪ alugueisEquipRaw. Necessário porque o
+   filtro de Cliente deste modal precisa casar o MESMO cliente mesmo
+   quando sua grafia varia entre as abas Faturamento/Insumos/Aluguéis
+   (mesmo problema, e mesma solução — canonCliente(), que já resolve
+   diferenças de abreviação de razão social além do que norm() sozinho
+   cobre — documentado junto a CLIENT_ALIAS_MAP). Sem isto, um cliente
+   cuja grafia em Insumos/Aluguéis não fosse IDÊNTICA, caractere a
+   caractere, ao nome usado em Faturamento ficaria de fora mesmo com
+   "todos os clientes" selecionados no filtro. */
+let eqClienteDisplayByKey = {};
+function buildEqClienteDisplayMap() {
+  eqClienteDisplayByKey = {};
+  rawData.forEach(r => { if (r.cliente && !eqClienteDisplayByKey[r.cliente]) eqClienteDisplayByKey[r.cliente] = r.displayName; });
+  insumosEquipRaw.forEach(r => { if (r.cliente && !eqClienteDisplayByKey[r.cliente]) eqClienteDisplayByKey[r.cliente] = r.clienteDisplay; });
+  alugueisEquipRaw.forEach(r => { if (r.cliente && !eqClienteDisplayByKey[r.cliente]) eqClienteDisplayByKey[r.cliente] = r.clienteDisplay; });
+}
+
+function buildEqFilterOptions() {
+  buildEqClienteDisplayMap();
+  eqAllValues.eqEmpresa = [...new Set(rawData.map(r=>r.empresa))].filter(Boolean).sort();
+  eqAllValues.eqAno     = [...new Set(rawData.map(r=>r.year))].sort();
+  eqAllValues.eqMes     = [...new Set(rawData.map(r=>r.month))].sort((a,b)=>a-b);
+  // Chave NORMALIZADA (não o texto de exibição) — ver eqClienteDisplayByKey
+  // acima; é o que garante casar o mesmo cliente entre Faturamento/Insumos/
+  // Aluguéis independentemente de pequenas variações de grafia.
+  eqAllValues.eqCliente = Object.keys(eqClienteDisplayByKey)
+    .sort((a,b) => (eqClienteDisplayByKey[a]||a).localeCompare(eqClienteDisplayByKey[b]||b));
+  // Universo de linhas: as categorias fixas (LINE_NAMES) que de fato têm
+  // dado, MAIS qualquer valor de linha realmente encontrado nos dados que
+  // não esteja na lista fixa (ex.: um valor novo/atípico na coluna LINHA
+  // da aba Aluguéis) — nunca fica de fora do filtro/soma silenciosamente.
+  const linhasPresentes = new Set([
+    ...insumosEquipRaw.map(r=>r.linha),
+    ...alugueisEquipRaw.map(r=>r.linha),
+  ]);
+  const linhasConhecidas = LINE_NAMES.filter(l => linhasPresentes.has(l));
+  const linhasExtras = [...linhasPresentes].filter(l => !LINE_NAMES.includes(l)).sort();
+  eqAllValues.eqLinha = linhasConhecidas.concat(linhasExtras);
+
+  eqFilters.eqEmpresa = new Set(eqAllValues.eqEmpresa);
+  eqFilters.eqAno     = new Set(eqAllValues.eqAno);
+  eqFilters.eqMes     = new Set(eqAllValues.eqMes);
+  eqFilters.eqCliente = new Set(eqAllValues.eqCliente);
+  eqFilters.eqLinha   = new Set(eqAllValues.eqLinha);
+
+  ['eqEmpresa','eqAno','eqMes','eqCliente','eqLinha'].forEach(id => eqBuildOptions(id));
+}
+
+const EQ_FILTER_LABELS = { eqEmpresa:'Empresa', eqAno:'Ano', eqMes:'Mês', eqCliente:'Cliente', eqLinha:'Linha' };
+
+function eqLabelFn(id) {
+  if (id === 'eqMes') return v => MESES[v];
+  if (id === 'eqCliente') return v => eqClienteDisplayByKey[v] || v;
+  return v => String(v);
+}
+
+function eqBuildOptions(id) {
+  const container = document.getElementById(`ms-${id}-options`);
+  if (!container) return;
+  const q = (eqSearchQueries[id] || '').toLowerCase();
+  const labelFn = eqLabelFn(id);
+  const values = eqAllValues[id].filter(v => !q || labelFn(v).toLowerCase().includes(q));
+  container.innerHTML = '';
+  values.forEach(val => {
+    const div = document.createElement('div');
+    div.className = 'ms-option';
+    const isChecked = eqFilters[id].has(val);
+    div.innerHTML = `
+      <input type="checkbox" ${isChecked?'checked':''} onchange="eqToggleFilter('${id}','${String(val).replace(/'/g,"\\'")}',this.checked)">
+      <span class="opt-label">${labelFn(val)}</span>
+    `;
+    container.appendChild(div);
+  });
+  eqUpdateFilterLabel(id);
+}
+
+function eqUpdateFilterLabel(id) {
+  const total = eqAllValues[id].length;
+  const sel = eqFilters[id].size;
+  const label = document.getElementById(`ms-${id}-label`);
+  const badge = document.getElementById(`ms-${id}-badge`);
+  if (!label || !badge) return;
+  const name = EQ_FILTER_LABELS[id];
+  if (sel === 0) { label.textContent = `Nenhum(a) — ${name}`; badge.style.display = 'none'; }
+  else if (sel >= total) { label.textContent = `${name} (todas)`; badge.style.display = 'none'; }
+  else { label.textContent = `${name} (${sel}/${total})`; badge.textContent = sel; badge.style.display = ''; }
+}
+
+function eqToggleDropdown(id) {
+  ['eqEmpresa','eqAno','eqMes','eqCliente','eqLinha'].forEach(k => {
+    const dd = document.getElementById(`ms-${k}-dropdown`);
+    const tr = document.getElementById(`ms-${k}-trigger`);
+    if (!dd || !tr) return;
+    if (k === id) { dd.classList.toggle('open'); tr.classList.toggle('open'); }
+    else { dd.classList.remove('open'); tr.classList.remove('open'); }
+  });
+}
+
+function eqToggleFilter(id, val, checked) {
+  // Ano/Mês chegam como string do dataset — normaliza de volta para number
+  // quando o valor original do universo é numérico, senão o Set.has() abaixo
+  // nunca bate (string '2026' !== number 2026).
+  const orig = eqAllValues[id].find(v => String(v) === String(val));
+  const v = orig !== undefined ? orig : val;
+  if (checked) eqFilters[id].add(v); else eqFilters[id].delete(v);
+  eqUpdateFilterLabel(id);
+  renderEqModal();
+}
+
+function eqFilterOptions(id, query) {
+  const prevQuery = eqSearchQueries[id] || '';
+  const newQuery  = query || '';
+  eqSearchQueries[id] = newQuery;
+  const wasSearching = prevQuery.trim() !== '';
+  const isSearching  = newQuery.trim() !== '';
+  const values = eqAllValues[id] || [];
+  if (isSearching) {
+    const labelFn = eqLabelFn(id);
+    const q = newQuery.toLowerCase().trim();
+    const visibleSet = new Set(values.filter(v => labelFn(v).toLowerCase().includes(q)));
+    const hadAllSelected = !wasSearching && eqFilters[id].size >= values.length;
+    if (hadAllSelected) eqFilters[id] = new Set();
+    else eqFilters[id] = new Set([...eqFilters[id]].filter(v => visibleSet.has(v)));
+  } else if (wasSearching && !isSearching && eqFilters[id].size === 0) {
+    eqFilters[id] = new Set(values);
+  }
+  eqBuildOptions(id);
+  renderEqModal();
+}
+
+function eqSelectAll(id) {
+  const q = (eqSearchQueries[id] || '').toLowerCase();
+  const labelFn = eqLabelFn(id);
+  const visible = eqAllValues[id].filter(v => !q || labelFn(v).toLowerCase().includes(q));
+  visible.forEach(v => eqFilters[id].add(v));
+  eqBuildOptions(id);
+  renderEqModal();
+}
+
+function eqClearAll(id) {
+  const q = (eqSearchQueries[id] || '').toLowerCase();
+  if (q) {
+    const labelFn = eqLabelFn(id);
+    const visible = new Set(eqAllValues[id].filter(v => labelFn(v).toLowerCase().includes(q)));
+    eqFilters[id] = new Set([...eqFilters[id]].filter(v => !visible.has(v)));
+  } else {
+    eqFilters[id] = new Set();
+  }
+  eqSearchQueries[id] = '';
+  const searchInput = document.getElementById(`ms-${id}-search-input`);
+  if (searchInput) searchInput.value = '';
+  eqBuildOptions(id);
+  renderEqModal();
+}
+
+function eqClearAllFilters() {
+  eqSearchQueries = { eqEmpresa:'', eqAno:'', eqMes:'', eqCliente:'', eqLinha:'' };
+  ['eqEmpresa','eqAno','eqMes','eqCliente','eqLinha'].forEach(id => {
+    const searchInput = document.getElementById(`ms-${id}-search-input`);
+    if (searchInput) searchInput.value = '';
+    eqFilters[id] = new Set(eqAllValues[id]);
+    eqBuildOptions(id);
+  });
+  renderEqModal();
+}
+
+/* ── Filtragem dos datasets Insumos/Aluguéis pelo estado eqFilters ── */
+function getFilteredInsumosEquip() {
+  return insumosEquipRaw.filter(r =>
+    eqFilters.eqEmpresa.has(r.empresa) &&
+    eqFilters.eqAno.has(r.year) &&
+    eqFilters.eqMes.has(r.month) &&
+    eqFilters.eqCliente.has(r.cliente) &&
+    eqFilters.eqLinha.has(r.linha)
+  );
+}
+/* Mesmo filtro de getFilteredInsumosEquip(), mas IGNORANDO o filtro de
+   Linha — usado só como denominador para saber o peso (%) que a Linha
+   selecionada representa dentro do total de Insumos de CADA cliente (ver
+   buildEqClientAgg), já que Impostos/Despesas Adm. são apurados sobre o
+   Faturamento total do cliente e precisam de um critério para saber que
+   fatia atribuir à Linha filtrada. */
+function getInsumosEquipTodasLinhas() {
+  return insumosEquipRaw.filter(r =>
+    eqFilters.eqEmpresa.has(r.empresa) &&
+    eqFilters.eqAno.has(r.year) &&
+    eqFilters.eqMes.has(r.month) &&
+    eqFilters.eqCliente.has(r.cliente)
+  );
+}
+function getFilteredAlugueisEquip() {
+  return alugueisEquipRaw.filter(r =>
+    eqFilters.eqEmpresa.has(r.empresa) &&
+    eqFilters.eqAno.has(r.year) &&
+    eqFilters.eqMes.has(r.month) &&
+    eqFilters.eqCliente.has(r.cliente) &&
+    eqFilters.eqLinha.has(r.linha)
+  );
+}
+/* Mesmo filtro de getFilteredAlugueisEquip(), mas IGNORANDO o filtro de
+   Linha — análoga a getInsumosEquipTodasLinhas(), usada para que o peso
+   (%) da Linha filtrada dentro do rateio de Impostos/Despesas Adm. de
+   cada cliente (ver buildEqClientAgg) considere também os Aluguéis, não
+   só os Insumos — um cliente pode ter atividade relevante numa Linha
+   majoritariamente (ou só) via Aluguéis. */
+function getAlugueisEquipTodasLinhas() {
+  return alugueisEquipRaw.filter(r =>
+    eqFilters.eqEmpresa.has(r.empresa) &&
+    eqFilters.eqAno.has(r.year) &&
+    eqFilters.eqMes.has(r.month) &&
+    eqFilters.eqCliente.has(r.cliente)
+  );
+}
+/* Faturamento (aba Faturamento, via rawData já processado) — respeita
+   Empresa/Ano/Mês/Cliente do modal, mas NUNCA o filtro de Linha (essa aba
+   não tem essa coluna; fatiar o Faturamento por linha inventaria dado que
+   não existe e quebraria a soma por cliente — ver nota no topo da seção). */
+function getFilteredFaturamentoEquip() {
+  return rawData.filter(r =>
+    eqFilters.eqEmpresa.has(r.empresa) &&
+    eqFilters.eqAno.has(r.year) &&
+    eqFilters.eqMes.has(r.month) &&
+    eqFilters.eqCliente.has(r.cliente)
+  );
+}
+
+/* Rateio de Despesas Adm. escopado ao filtro Empresa/Ano/Mês DESTE modal
+   (mesma fórmula/pesos de recomputeAdminTotal, reaproveitando a MESMA
+   seleção global de categorias de Despesas — filters.categoria — já que
+   Impostos% e categorias do rateio são parâmetros únicos do app). Ignora
+   o filtro de Cliente/Linha nos denominadores de referência, pelo mesmo
+   motivo já documentado em computeReferenceFaturamento/computeReferenceEquip:
+   o cliente filtrado deve receber apenas sua fatia proporcional do total,
+   nunca o total inteiro dos demais filtros.
+   ✅ CORREÇÃO: a base (admBase) agora é calculada com o MESMO escopo de
+   Empresa/Ano/Mês usado no refFat/refEquip — o escopo PRÓPRIO deste modal
+   (eqFilters.eqEmpresa/eqAno/eqMes), e não mais o escopo do dashboard
+   principal (filters.empresa/ano/mes). Antes, a base vinha do filtro do
+   dashboard principal enquanto o refFat/refEquip vinham do filtro do
+   modal — dois escopos INDEPENDENTES (o usuário pode alterar um sem
+   alterar o outro). Sempre que os dois escopos divergissem (ex.: usuário
+   filtra uma Empresa ou restringe Ano/Mês no dashboard principal sem
+   alterar os filtros do modal, ou vice-versa), a base (numerador) e o
+   refFat/refEquip (denominador) passavam a representar UNIVERSOS
+   DIFERENTES, distorcendo a fatia de Despesas Adm. atribuída a cada
+   cliente no modal — o que causava divergência em relação ao mesmo
+   cliente calculado no dashboard principal (computeRowAdjustments), que
+   sempre usa numerador e denominador do MESMO escopo (o do próprio
+   dashboard principal). Com numerador e denominador agora sempre do
+   mesmo escopo (o do modal), o rateio do modal fica correto e
+   internamente consistente em qualquer combinação de filtros — e volta a
+   bater exatamente com o dashboard principal sempre que os filtros de
+   Empresa/Ano/Mês de ambos coincidirem (ex.: ambos "todos"). */
+function recomputeEqAdminTotal() {
+  const base = computeDespesasAdmTotal(eqFilters.eqEmpresa, eqFilters.eqAno, eqFilters.eqMes);
+  // refFat/refEquip próprios do escopo Empresa/Ano/Mês do modal eq:
+  let refFat = 0;
+  const clientesRef = new Set();
+  rawData.forEach(r => {
+    if (eqFilters.eqEmpresa.has(r.empresa) && eqFilters.eqAno.has(r.year) && eqFilters.eqMes.has(r.month)) {
+      refFat += r.faturamento;
+      clientesRef.add(r.cliente);
+    }
+  });
+  let refEquip = 0;
+  clientesRef.forEach(k => { refEquip += (patrimonioCountByClient[k] || 0); });
+  return { base, refFat, refEquip };
+}
+
+/* Agregação principal: uma linha por CLIENTE ÚNICO (nunca por cliente+
+   linha — ver nota no topo da seção). impostos/adm calculados uma única
+   vez por cliente (mesmo padrão de computeRowAdjustments, sem duplicar
+   equipamentos para clientes multiempresa). */
+function buildEqClientAgg() {
+  const { base: admBase, refFat, refEquip } = recomputeEqAdminTotal();
+  const fatRows   = getFilteredFaturamentoEquip();
+  const insRows   = getFilteredInsumosEquip();
+  const algRows   = getFilteredAlugueisEquip();
+
+  // Peso (%) que a Linha filtrada representa dentro do total de Insumos +
+  // Aluguéis de CADA cliente (em TODAS as linhas, ignorando o filtro de
+  // Linha) — usado para saber que fatia de Impostos/Despesas Adm.
+  // (apurados sobre o Faturamento TOTAL do cliente, sem vínculo com
+  // Linha) atribuir à Linha selecionada. Sem isso, ao filtrar por uma
+  // Linha específica, só o "Custo dos Insumos" mudava — Impostos e
+  // Despesas Adm. continuavam representando o cliente inteiro, dando a
+  // impressão de cards "travados" que não reagem ao filtro.
+  // ✅ Correção: o peso agora combina Insumos E Aluguéis (não só Insumos).
+  // Antes, um cliente cuja atividade na Linha filtrada viesse
+  // majoritariamente (ou só) de Aluguéis — ex.: máquina locada sem compra
+  // de insumos naquela Linha — tinha shareLinha = 0 (calculado só sobre
+  // Insumos), zerando Impostos/Desp. Adm./Custo Total mesmo tendo
+  // Aluguéis relevantes ali, o que o mantinha na lista (hasLinhaAtividade
+  // = true, por causa do Aluguel) mas com Impostos/Adm/Custo Total
+  // incoerentemente zerados — exatamente o sintoma relatado (cliente
+  // aparece com Aluguéis > 0 mas Insumos/Impostos/Desp. Adm. = R$ 0,00).
+  const insumosTotalPorCliente = {};
+  getInsumosEquipTodasLinhas().forEach(r => {
+    insumosTotalPorCliente[r.cliente] = (insumosTotalPorCliente[r.cliente] || 0) + r.valor;
+  });
+  const alugueisTotalPorCliente = {};
+  getAlugueisEquipTodasLinhas().forEach(r => {
+    alugueisTotalPorCliente[r.cliente] = (alugueisTotalPorCliente[r.cliente] || 0) + r.valor;
+  });
+
+  const map = {}; // key = cliente normalizado
+  fatRows.forEach(r => {
+    if (!map[r.cliente]) map[r.cliente] = { clientKey:r.cliente, name:r.displayName, fat:0, insumos:0, alugueis:0 };
+    map[r.cliente].fat += r.faturamento;
+  });
+  insRows.forEach(r => {
+    if (!map[r.cliente]) map[r.cliente] = { clientKey:r.cliente, name:r.clienteDisplay, fat:0, insumos:0, alugueis:0 };
+    map[r.cliente].insumos += r.valor;
+  });
+  algRows.forEach(r => {
+    if (!map[r.cliente]) map[r.cliente] = { clientKey:r.cliente, name:r.clienteDisplay, fat:0, insumos:0, alugueis:0 };
+    map[r.cliente].alugueis += r.valor;
+  });
+
+  return Object.values(map).map(c => {
+    // Custo Total = Insumos + Impostos + Rateio de Despesas Adm. — é essa
+    // soma que a Margem/Resultado compara contra o Faturamento
+    // (análise de lucratividade). Os Aluguéis (c.alugueis) continuam de
+    // fora dessa soma — servem só como dado informativo ao lado (coluna/
+    // KPI próprios), sem afetar Custo Total nem Resultado.
+    const impostosTotalCliente = c.fat * (params.taxPct / 100);
+    const fatShare = refFat > 0 ? (c.fat / refFat) : 0;
+    let admTotalCliente;
+    if (refEquip > 0) {
+      const equipShare = (patrimonioCountByClient[c.clientKey] || 0) / refEquip;
+      admTotalCliente = admBase * (RATEIO_FAT_WEIGHT * fatShare + RATEIO_EQUIP_WEIGHT * equipShare);
+    } else {
+      admTotalCliente = admBase * fatShare;
+    }
+    // Fatia de Impostos/Despesas Adm. atribuída à Linha filtrada,
+    // proporcional ao peso de (Insumos + Aluguéis) da Linha dentro do
+    // total de (Insumos + Aluguéis) do cliente (em TODAS as linhas).
+    // Quando "Todas as Linhas" está selecionado, o numerador já é igual
+    // ao total do cliente, então shareLinha = 1 naturalmente
+    // (comportamento idêntico ao anterior). Clientes sem NENHUM Insumo
+    // nem Aluguel classificado (só Faturamento) não têm base para ratear
+    // por Linha — mantêm Impostos/Adm cheios (shareLinha = 1), já que não
+    // há como saber a que Linha atribuí-los.
+    const insumosTotalCliente  = insumosTotalPorCliente[c.clientKey] || 0;
+    const alugueisTotalCliente = alugueisTotalPorCliente[c.clientKey] || 0;
+    const baseTotalCliente = insumosTotalCliente + alugueisTotalCliente;
+    const baseLinhaCliente = c.insumos + c.alugueis;
+    const shareLinha = baseTotalCliente > 0 ? (baseLinhaCliente / baseTotalCliente) : 1;
+    const impostos = impostosTotalCliente * shareLinha;
+    const adm = admTotalCliente * shareLinha;
+    const custoTotal = c.insumos + impostos + adm;
+    const resAj = c.fat - custoTotal;
+    // Indica se o cliente teve QUALQUER atividade de Insumos/Aluguéis
+    // dentro da Linha filtrada — usado para FILTRAR (ver abaixo, quando um
+    // filtro de Linha específico está ativo) e para desempate na
+    // ordenação. Diferente de custoTotal, que agora SEMPRE é > 0 para
+    // clientes com Faturamento (Impostos/Rateio não dependem de haver
+    // Insumos na linha), então não serve mais como sinal de "tem
+    // atividade nesta linha" por si só.
+    const hasLinhaAtividade = c.insumos > 0 || c.alugueis > 0;
+    // impostosTotalCliente/admTotalCliente (não reduzidos por shareLinha)
+    // e baseTotalCliente (Insumos+Aluguéis do cliente em TODAS as linhas,
+    // ignorando o filtro de Linha) são expostos aqui para que
+    // buildEqLinhaBreakdown() possa ratear Impostos/Adm/Faturamento por
+    // Linha usando a MESMA base (TOTAL real do cliente, não uma base já
+    // reduzida pelo filtro de Linha atual) — evita ratear duas vezes pelo
+    // mesmo peso (uma vez aqui, outra dentro do breakdown por Linha), o
+    // que geraria valores incorretos quando o filtro de Linha já estiver
+    // restrito a um subconjunto (ver nota em buildEqLinhaBreakdown).
+    return { ...c, custoTotal, impostos, adm, resAj, margem: c.fat > 0 ? resAj / c.fat : 0, hasLinhaAtividade,
+             impostosTotalCliente, admTotalCliente, baseTotalCliente };
+  })
+  // ✅ Correção: quando um filtro de Linha ESPECÍFICO está ativo (nem
+  // todas as Linhas selecionadas), clientes com Faturamento mas SEM
+  // NENHUMA atividade de Insumos/Aluguéis naquela Linha (hasLinhaAtividade
+  // = false) eram mantidos na tabela com Insumos/Impostos/Desp. Adm./
+  // Custo Total zerados (shareLinha = 0) e Resultado = Faturamento cheio
+  // (margem artificial de ~100%) — dando a falsa impressão de que os
+  // montantes desses clientes "não apareciam"/estavam quebrados, quando
+  // na verdade o cliente simplesmente não consome aquela Linha. Esses
+  // clientes agora são REMOVIDOS da lista (e dos totais/KPIs do modal, das
+  // exportações XLSX/PDF e do gráfico) sempre que a Linha estiver
+  // filtrada para um subconjunto — a tabela passa a mostrar apenas
+  // clientes de fato relevantes para a Linha selecionada, sem linhas de
+  // R$ 0,00 induzindo à leitura de que há dado faltando. Com "Todas as
+  // Linhas" selecionado (comportamento padrão), nada muda: todo cliente
+  // com Faturamento continua aparecendo normalmente.
+  .filter(c => {
+    const linhaFiltroAtivo = eqFilters.eqLinha.size > 0 && eqFilters.eqLinha.size < eqAllValues.eqLinha.length;
+    if (!linhaFiltroAtivo) return true;
+    return c.hasLinhaAtividade;
+  })
+  .sort((a,b) => {
+    // Ordena por MARGEM (%), não pelo valor absoluto do Resultado
+    // — o Faturamento total do cliente não muda conforme a Linha
+    // selecionada no filtro (só o custo de Insumos muda), então ordenar
+    // por valor absoluto deixava o ranking dominado por "quem fatura
+    // mais" em vez de responder "quem é mais lucrativo NAQUELA
+    // relação/linha" — a margem (%) neutraliza essa dominância do porte
+    // do cliente e reflete melhor o peso relativo do custo da linha
+    // filtrada sobre o faturamento de cada cliente.
+    // Clientes sem Faturamento no cenário (fat=0, raro — só aparecem por
+    // terem lançamento em Insumos/Aluguéis sem contrapartida em
+    // Faturamento) não têm margem definida (divisão por zero) — ficam
+    // sempre no fim da lista, desempatados por Resultado.
+    const aHasFat = a.fat > 0, bHasFat = b.fat > 0;
+    if (aHasFat && !bHasFat) return -1;
+    if (!aHasFat && bHasFat) return 1;
+    if (!aHasFat && !bHasFat) return b.resAj - a.resAj;
+    // ✅ Correção: clientes com Faturamento mas SEM nenhuma atividade de
+    // Insumos/Aluguéis dentro da Linha filtrada (hasLinhaAtividade=false)
+    // não têm dado real para avaliar "lucratividade NAQUELA linha" — a
+    // margem deles fica artificialmente próxima de 100% (sem custo de
+    // Insumos a comparar, só Impostos/Rateio), o que os fazia dominar o
+    // TOPO do ranking mesmo sem nenhuma compra ou locação na linha
+    // selecionada, empurrando para baixo (e às vezes para fora da área
+    // visível) os clientes que de fato têm Insumos/Aluguéis naquela
+    // linha — dando a falsa impressão de que os montantes "não aparecem"
+    // ao filtrar por uma Linha específica sem restringir o Cliente. Esses
+    // clientes sem atividade na linha ficam agora no fim da lista (ainda
+    // visíveis, só não no topo), desempatados por Faturamento (maior
+    // primeiro).
+    if (a.hasLinhaAtividade && !b.hasLinhaAtividade) return -1;
+    if (!a.hasLinhaAtividade && b.hasLinhaAtividade) return 1;
+    if (!a.hasLinhaAtividade && !b.hasLinhaAtividade) return b.fat - a.fat;
+    return b.margem - a.margem;
+  });
+}
+
+/* Breakdown por Linha, dentro do filtro atual (Empresa/Ano/Mês/Cliente/
+   Linha) — mostra o CUSTO REAL de cada Linha: Insumos (valor direto, já
+   classificado por Linha) + Impostos + Rateio de Despesas Adm. (Aluguéis
+   fica de fora do Custo Real, é só informativo — mesma regra da análise de
+   lucratividade por Cliente, ver buildEqClientAgg).
+   Impostos e Rateio são apurados por CLIENTE sobre o Faturamento total
+   do cliente (não têm vínculo direto com Linha, pois a aba Faturamento
+   não tem essa coluna). Para o Custo Real de cada Linha, cada CLIENTE tem
+   seus PRÓPRIOS Impostos/Rateio (já calculados por buildEqClientAgg, com
+   peso combinando Insumos+Aluguéis) rateados entre as linhas em que ELE
+   MESMO tem Insumos E/OU Aluguéis, proporcional ao peso de
+   (Insumos+Aluguéis) de cada linha dentro do total de (Insumos+Aluguéis)
+   DAQUELE cliente (rateio no nível do cliente, não do total geral). Isso
+   preserva a composição real de clientes por trás de cada Linha: uma
+   Linha comprada/locada majoritariamente por clientes de margem apertada
+   herda um Custo Real proporcionalmente maior do que uma Linha
+   concentrada em clientes de margem folgada.
+   ✅ Correção: antes, o rateio de Impostos/Desp. Adm. por Linha considerava
+   SÓ os Insumos do cliente (insumosByClientLinha/insumosByClientTotal) —
+   uma Linha em que o cliente tivesse atividade SÓ via Aluguéis (sem
+   Insumos ali) nunca recebia fatia de Impostos/Adm nessa tabela, e
+   clientes com Insumos = 0 em TODAS as linhas (mas com Aluguéis
+   relevantes) eram pulados inteiramente (totalClienteInsumos <= 0 →
+   return), perdendo seus Impostos/Adm da distribuição por Linha. Agora o
+   rateio usa a base combinada (Insumos+Aluguéis) por linha/cliente, a
+   MESMA lógica já usada em buildEqClientAgg — cobrindo também linhas cuja
+   atividade do cliente é só de Aluguéis.
+   ✅ % Participação: compara o Custo Real com o Faturamento GLOBAL (cheio,
+   não rateado) do período de cada cliente que tem Insumos e/ou Aluguéis
+   naquela Linha (fatGlobal = soma de fatC uma vez por cliente/Linha, sem
+   multiplicar pelo share). Isso dá uma visão mais fiel de quanto o Custo
+   Real daquela Linha representa diante do Faturamento total dos clientes
+   que a compõem — a real "representatividade" do custo daquela linha de
+   consumo.
+   ✅ Faturamento Proporcional (fatProporcional): quando se filtra um
+   Cliente específico (reduzindo a lista a poucos/um cliente), o
+   fatGlobal (Faturamento cheio do cliente) não concilia matematicamente
+   com os R$ de Impostos/Desp. Adm. mostrados na mesma linha — esses
+   valores foram calculados sobre a fatia do Faturamento atribuída a essa
+   Linha (c.fat × shareLinha), não sobre o Faturamento cheio. Por isso a
+   função também expõe fatProporcional = soma de (fatC × shareLinha) — a
+   base real que gerou os R$ de Impostos/Desp. Adm. daquela Linha,
+   permitindo conferir a conta (Impostos ≈ fatProporcional × Impostos%). */
+function buildEqLinhaBreakdown() {
+  const clientRows = buildEqClientAgg();
+  // ✅ Usa os valores BRUTOS (não reduzidos por shareLinha) — impostosTotalCliente/
+  // admTotalCliente — e a base TOTAL real do cliente (baseTotalCliente,
+  // Insumos+Aluguéis em TODAS as linhas, ignorando o filtro de Linha
+  // atual), ambos expostos por buildEqClientAgg(). Ratear a partir daqui
+  // evita aplicar o shareLinha DUAS VEZES: uma primeira vez implícita
+  // (impostosByClient/admByClient já viriam reduzidos pelo shareLinha
+  // calculado dentro de buildEqClientAgg) e uma segunda vez aqui (share
+  // local, calculado sobre um total já filtrado pela própria Linha) — o
+  // que produzia valores errados sempre que o filtro de Linha já estivesse
+  // restrito a um subconjunto: o "share local" degenerava para 1 (pois o
+  // numerador e o denominador locais eram o MESMO subconjunto filtrado),
+  // fazendo o Faturamento Proporcional aparecer igual ao Faturamento
+  // Global (cheio), mesmo quando o cliente tinha atividade relevante em
+  // OUTRAS linhas fora do filtro atual.
+  const impostosRawByClient = {}, admRawByClient = {}, fatByClient = {}, baseTotalByClient = {};
+  clientRows.forEach(c => {
+    impostosRawByClient[c.clientKey] = c.impostosTotalCliente;
+    admRawByClient[c.clientKey] = c.admTotalCliente;
+    fatByClient[c.clientKey] = c.fat;
+    baseTotalByClient[c.clientKey] = c.baseTotalCliente;
+  });
+
+  const map = {}; // linha -> { linha, insumos, alugueis, impostos, adm, fatGlobal, fatProporcional }
+  const ensureLinha = (linha) => {
+    if (!map[linha]) map[linha] = { linha, insumos:0, alugueis:0, impostos:0, adm:0, fatGlobal:0, fatProporcional:0 };
+    return map[linha];
+  };
+
+  // Insumos/Aluguéis de cada cliente, por Linha VISÍVEL (dentro do filtro
+  // de Linha atual) — usados como numerador do rateio.
+  const baseByClientLinha = {};  // clientKey -> { linha: insumos+alugueis }
+
+  getFilteredInsumosEquip().forEach(r => {
+    ensureLinha(r.linha).insumos += r.valor;
+    if (!baseByClientLinha[r.cliente]) baseByClientLinha[r.cliente] = {};
+    baseByClientLinha[r.cliente][r.linha] = (baseByClientLinha[r.cliente][r.linha] || 0) + r.valor;
+  });
+  getFilteredAlugueisEquip().forEach(r => {
+    ensureLinha(r.linha).alugueis += r.valor;
+    if (!baseByClientLinha[r.cliente]) baseByClientLinha[r.cliente] = {};
+    baseByClientLinha[r.cliente][r.linha] = (baseByClientLinha[r.cliente][r.linha] || 0) + r.valor;
+  });
+
+  Object.keys(baseByClientLinha).forEach(clientKey => {
+    // Denominador = base TOTAL REAL do cliente (todas as linhas, ignorando
+    // o filtro de Linha atual) — a MESMA base usada por buildEqClientAgg
+    // para calcular o shareLinha do cliente inteiro.
+    const totalClienteBase = baseTotalByClient[clientKey] || 0;
+    if (totalClienteBase <= 0) return;
+    const impRawC = impostosRawByClient[clientKey] || 0;
+    const admRawC = admRawByClient[clientKey] || 0;
+    const fatC = fatByClient[clientKey] || 0;
+    Object.entries(baseByClientLinha[clientKey]).forEach(([linha, valor]) => {
+      // share combina, num único passo, a proporção que a Linha visível
+      // representa dentro do TOTAL real (todas as linhas) do cliente —
+      // equivalente ao shareLinha de buildEqClientAgg quando só esta
+      // Linha está filtrada, e à fatia proporcional dela quando várias
+      // linhas estão visíveis simultaneamente.
+      const share = valor / totalClienteBase;
+      const row = ensureLinha(linha);
+      row.impostos += impRawC * share;
+      row.adm += admRawC * share;
+      // Faturamento GLOBAL do cliente (cheio, sem rateio por share) —
+      // cada cliente que tem Insumos e/ou Aluguéis na Linha contribui com
+      // seu Faturamento total do período, uma única vez por Linha. Usado
+      // como base do % Participação (ver comentário da função acima).
+      row.fatGlobal += fatC;
+      // ✅ Faturamento PROPORCIONAL: a fatia do Faturamento do cliente que
+      // de fato serviu de base matemática para os R$ de Impostos/Desp.
+      // Adm. atribuídos a esta Linha (Impostos ≈ fatProporcional ×
+      // Impostos%) — diferente do fatGlobal (Faturamento total do
+      // cliente, usado só para o % Participação).
+      row.fatProporcional += fatC * share;
+    });
+  });
+
+  return Object.values(map).map(r => {
+    const custoReal = r.insumos + r.impostos + r.adm;
+    const pct = r.fatGlobal > 0 ? custoReal / r.fatGlobal : 0;
+    return { ...r, custoReal, pct };
+  }).sort((a,b)=>b.custoReal-a.custoReal);
+}
+
+/* ✅ Correção visual: eqKpiCard() usava as classes "client-summary-card"/
+   "label"/"value", que não têm NENHUM estilo CSS definido no app — os
+   cards do modal "Lucratividade por Linha de Equipamentos" renderizavam
+   como texto simples, sem cartão, borda ou destaque. Passa a usar o
+   mesmo padrão visual (.client-kpi/.client-kpi-label/.client-kpi-value)
+   já usado nos cards de KPI do modal de detalhe do cliente — fundo em
+   gradiente, borda arredondada e tipografia em destaque — mantendo a
+   cor semântica (Aluguéis em roxo, Impostos em vermelho, Despesas Adm.
+   em âmbar, Resultado em verde/vermelho conforme o sinal). */
+function eqKpiCard(label, value, cls) {
+  const colorVar = { purple:'var(--purple)', red:'var(--red)', amber:'var(--amber)', green:'var(--green)' }[cls];
+  return `<div class="client-kpi">
+      <div class="client-kpi-label">${label}</div>
+      <div class="client-kpi-value"${colorVar ? ` style="color:${colorVar}"` : ''}>${fmtR(value)}</div>
+    </div>`;
+}
+
+function renderEqModal() {
+  if (!document.getElementById('eq-modal')?.classList.contains('open')) return;
+  const clientRows = buildEqClientAgg();
+
+  const totalFat    = clientRows.reduce((s,r)=>s+r.fat,0);
+  const totalIns     = clientRows.reduce((s,r)=>s+r.insumos,0);
+  const totalAlug    = clientRows.reduce((s,r)=>s+r.alugueis,0);
+  const totalCusto   = clientRows.reduce((s,r)=>s+r.custoTotal,0);
+  const totalImp     = clientRows.reduce((s,r)=>s+r.impostos,0);
+  const totalAdm     = clientRows.reduce((s,r)=>s+r.adm,0);
+  const totalResAj   = clientRows.reduce((s,r)=>s+r.resAj,0);
+  const nClientes    = clientRows.filter(r => r.fat > 0 || r.custoTotal > 0).length;
+
+  const linhaRows  = buildEqLinhaBreakdown();
+
+  const kpiGrid = document.getElementById('eq-kpi-grid');
+  if (kpiGrid) {
+    kpiGrid.innerHTML = [
+      eqKpiCard('Faturamento', totalFat),
+      eqKpiCard('Custo dos Insumos', totalIns),
+      eqKpiCard('Aluguéis (informativo)', totalAlug, 'purple'),
+      eqKpiCard('Custo Total — Insumos+Impostos+Rateio', totalCusto),
+      eqKpiCard('Impostos', totalImp, 'red'),
+      eqKpiCard('Despesas Adm. (rateio)', totalAdm, 'amber'),
+      eqKpiCard('Resultado', totalResAj, totalResAj>=0?'green':'red'),
+    ].join('');
+  }
+  const meta = document.getElementById('eq-modal-meta');
+  if (meta) meta.textContent = `${nClientes} cliente(s) · Margem ${fmtPct(totalFat>0?totalResAj/totalFat:0)}`;
+
+  // Tabela por cliente
+  const tbody = document.getElementById('eq-cliente-table-body');
+  if (tbody) {
+    tbody.innerHTML = clientRows.map(r => `
+      <tr>
+        <td>${escapeHtml(r.name)}</td>
+        <td class="num"><strong style="color:${r.margem>=0?'var(--green)':'var(--red)'}">${r.fat>0?fmtPct(r.margem):'—'}</strong></td>
+        <td class="num">${fmtR(r.fat)}</td>
+        <td class="num">${fmtR(r.insumos)}</td>
+        <td class="num" style="color:var(--purple)">${fmtR(r.alugueis)}</td>
+        <td class="num">${fmtR(r.custoTotal)}</td>
+        <td class="num" style="color:var(--red)">${fmtR(r.impostos)}</td>
+        <td class="num" style="color:var(--amber)">${fmtR(r.adm)}</td>
+        <td class="num"><span class="${r.resAj>=0?'result-pos':'result-neg'}">${fmtR(r.resAj)}</span></td>
+      </tr>`).join('');
+  }
+  const tcount = document.getElementById('eq-cliente-table-count');
+  if (tcount) tcount.textContent = `${clientRows.length} cliente(s)`;
+
+  const tfootCliente = document.getElementById('eq-cliente-table-foot');
+  if (tfootCliente) {
+    const margemTotal = totalFat > 0 ? totalResAj / totalFat : 0;
+    tfootCliente.innerHTML = `
+      <tr class="totals-row">
+        <td class="totals-label">TOTAL</td>
+        <td class="num"><strong style="color:${margemTotal>=0?'var(--green)':'var(--red)'}">${totalFat>0?fmtPct(margemTotal):'—'}</strong></td>
+        <td class="num">${fmtR(totalFat)}</td>
+        <td class="num">${fmtR(totalIns)}</td>
+        <td class="num" style="color:var(--purple)">${fmtR(totalAlug)}</td>
+        <td class="num">${fmtR(totalCusto)}</td>
+        <td class="num" style="color:var(--red)">${fmtR(totalImp)}</td>
+        <td class="num" style="color:var(--amber)">${fmtR(totalAdm)}</td>
+        <td class="num"><span class="${totalResAj>=0?'result-pos':'result-neg'}">${fmtR(totalResAj)}</span></td>
+      </tr>`;
+  }
+
+  // Tabela por linha (custo real: Insumos + Impostos + Rateio; % sobre o
+  // Faturamento GLOBAL dos clientes que compram na Linha — ver
+  // buildEqLinhaBreakdown)
+  const tbodyLinha = document.getElementById('eq-linha-table-body');
+  if (tbodyLinha) {
+    tbodyLinha.innerHTML = linhaRows.map(r => `
+      <tr>
+        <td>${escapeHtml(r.linha)}</td>
+        <td class="num">${fmtR(r.insumos)}</td>
+        <td class="num" style="color:var(--red)">${fmtR(r.impostos)}</td>
+        <td class="num" style="color:var(--amber)">${fmtR(r.adm)}</td>
+        <td class="num"><strong>${fmtR(r.custoReal)}</strong></td>
+        <td class="num">${fmtR(r.fatProporcional)}</td>
+        <td class="num">${r.fatGlobal>0?fmtPct(r.pct):'—'}</td>
+      </tr>`).join('');
+  }
+  // Barra de totais: soma simples de Insumos/Impostos/Desp. Adm./Custo
+  // Real/Faturamento Proporcional (a soma das fatias de cada cliente já
+  // reconcilia com o Faturamento total, pois as fatias por Linha de um
+  // mesmo cliente somam 100% dele). Para o % Participação total, NÃO
+  // somamos r.fatGlobal entre Linhas (um mesmo cliente que compra em
+  // várias Linhas seria contado várias vezes) — usamos totalFat
+  // (Faturamento total dos clientes do cenário filtrado, já calculado
+  // acima a partir de clientRows, sem duplicação) como base de comparação
+  // do Custo Real total.
+  const tfootLinha = document.getElementById('eq-linha-table-foot');
+  if (tfootLinha) {
+    const totalLinhaInsumos = linhaRows.reduce((s,r)=>s+r.insumos,0);
+    const totalLinhaImpostos = linhaRows.reduce((s,r)=>s+r.impostos,0);
+    const totalLinhaAdm = linhaRows.reduce((s,r)=>s+r.adm,0);
+    const totalLinhaCustoReal = linhaRows.reduce((s,r)=>s+r.custoReal,0);
+    const totalLinhaFatProp = linhaRows.reduce((s,r)=>s+r.fatProporcional,0);
+    const totalLinhaPct = totalFat > 0 ? totalLinhaCustoReal / totalFat : 0;
+    tfootLinha.innerHTML = `
+      <tr class="totals-row">
+        <td class="totals-label">TOTAL</td>
+        <td class="num">${fmtR(totalLinhaInsumos)}</td>
+        <td class="num" style="color:var(--red)">${fmtR(totalLinhaImpostos)}</td>
+        <td class="num" style="color:var(--amber)">${fmtR(totalLinhaAdm)}</td>
+        <td class="num">${fmtR(totalLinhaCustoReal)}</td>
+        <td class="num">${fmtR(totalLinhaFatProp)}</td>
+        <td class="num">${totalFat>0?fmtPct(totalLinhaPct):'—'}</td>
+      </tr>`;
+  }
+
+  renderEqUnclassifiedPanel();
+}
+
+/* Painel "Itens não classificados" — mostra os produtos da aba Insumos
+   (dentro do cenário Empresa/Ano/Mês/Cliente/Linha filtrado, restrito a
+   linha = NÃO CLASSIFICADO) que não bateram nem com a aba "Linhas" (nome
+   exato ou nome-base) nem com nenhuma palavra-chave de reserva, do maior
+   para o menor valor, com um controle para o usuário classificá-los na
+   hora — ver eqClassifyUnclassified(). */
+/* Mostra, no painel "Origem da classificação de Linha", quantos itens de
+   TODA a aba Insumos importada (independente dos filtros do modal — vem
+   de eqLinhaLookupStats, populado por reclassifyInsumosEquip()) vieram de
+   cada camada de classifyLinha(): casamento exato/nome-base com a aba
+   "Linhas", palavra-chave de reserva, ou nenhuma das duas (NÃO
+   CLASSIFICADO) — para o usuário enxergar o quanto a aba "Linhas" já
+   resolve sozinha. */
+function renderEqLinhaSourceStats() {
+  const el = document.getElementById('eq-linha-source-stats');
+  if (!el) return;
+  const s = eqLinhaLookupStats;
+  const total = s.exato + s.base + s.palavraChave + s.naoClassificado;
+  if (!total) { el.textContent = 'Nenhum item da aba Insumos carregado.'; return; }
+  const pct = n => total ? `${(100*n/total).toFixed(1)}%` : '0%';
+  el.innerHTML = `Aba "Linhas" (nome exato): <strong>${s.exato}</strong> item(ns) (${pct(s.exato)}) · `
+    + `Aba "Linhas" (nome-base): <strong>${s.base}</strong> (${pct(s.base)}) · `
+    + `Palavra-chave (reserva): <strong>${s.palavraChave}</strong> (${pct(s.palavraChave)}) · `
+    + `Não classificado: <strong>${s.naoClassificado}</strong> (${pct(s.naoClassificado)})`;
+}
+
+function renderEqUnclassifiedPanel() {
+  renderEqLinhaSourceStats();
+  const box = document.getElementById('eq-unclassified-body');
+  if (!box) return;
+  const items = Object.entries(eqUnclassified).sort((a,b) => b[1]-a[1]).slice(0, 60);
+  const totalUnclass = Object.values(eqUnclassified).reduce((s,v)=>s+v,0);
+  const countEl = document.getElementById('eq-unclassified-count');
+  if (countEl) countEl.textContent = `${Object.keys(eqUnclassified).length} produto(s) · R$ ${totalUnclass.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+  const linhaOptions = Object.keys(LINE_KEYWORDS).map(l=>`<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
+  box.innerHTML = items.map(([produto, valor], i) => `
+    <tr>
+      <td style="max-width:320px;white-space:normal">${escapeHtml(produto)}</td>
+      <td class="num">${fmtR(valor)}</td>
+      <td>
+        <div style="display:flex;gap:4px;align-items:center">
+          <select id="eq-unclass-linha-${i}" style="max-width:140px">${linhaOptions}</select>
+          <input type="text" id="eq-unclass-kw-${i}" value="${escapeHtml(produto)}" style="max-width:180px" title="Palavra-chave a cadastrar (edite para deixar mais genérica)">
+          <button class="client-modal-btn" onclick="eqClassifyUnclassified(document.getElementById('eq-unclass-kw-${i}').value, document.getElementById('eq-unclass-linha-${i}').value)">+ classificar</button>
+        </div>
+      </td>
+    </tr>`).join('') || `<tr><td colspan="3" style="text-align:center;color:var(--muted)">Nenhum item não classificado neste cenário 🎉</td></tr>`;
+}
+
+/* Adiciona `keyword` ao dicionário de LINHA `linha` e reclassifica TODOS
+   os itens da aba Insumos já lidos, na hora — sem precisar reimportar a
+   planilha (ver reclassifyInsumosEquip). Isso é o que torna a
+   classificação dinâmica: uma palavra-chave nova passa a valer tanto para
+   os lançamentos já carregados quanto para qualquer item futuro (de uma
+   nova importação) cujo nome contenha esse termo. */
+function eqAddKeyword(linha, keyword) {
+  const kw = (keyword || '').trim();
+  if (!kw || !LINE_KEYWORDS[linha]) return;
+  if (!LINE_KEYWORDS[linha].some(k => norm(k) === norm(kw))) {
+    LINE_KEYWORDS[linha].push(kw);
+  }
+  reclassifyInsumosEquip();
+  renderEqKeywordEditor();
+  renderEqModal();
+}
+function eqClassifyUnclassified(keyword, linha) { eqAddKeyword(linha, keyword); }
+function eqRemoveKeyword(linha, keyword) {
+  if (!LINE_KEYWORDS[linha]) return;
+  LINE_KEYWORDS[linha] = LINE_KEYWORDS[linha].filter(k => k !== keyword);
+  reclassifyInsumosEquip();
+  renderEqKeywordEditor();
+  renderEqModal();
+}
+function renderEqKeywordEditor() {
+  const sel = document.getElementById('eq-kw-linha-select');
+  const chipsBox = document.getElementById('eq-kw-chips');
+  if (!sel || !chipsBox) return;
+  if (!sel.dataset.filled) {
+    sel.innerHTML = Object.keys(LINE_KEYWORDS).map(l=>`<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
+    sel.dataset.filled = '1';
+    sel.onchange = renderEqKeywordEditor;
+  }
+  const linha = sel.value || Object.keys(LINE_KEYWORDS)[0];
+  chipsBox.innerHTML = (LINE_KEYWORDS[linha] || []).map(kw => `
+    <span class="eq-kw-chip">${escapeHtml(kw)} <button onclick="eqRemoveKeyword('${escapeHtml(linha)}','${escapeHtml(kw).replace(/'/g,"\\'")}')" title="Remover">✕</button></span>
+  `).join('') || '<span style="color:var(--muted)">Nenhuma palavra-chave cadastrada</span>';
+}
+function eqAddKeywordFromInput() {
+  const sel = document.getElementById('eq-kw-linha-select');
+  const input = document.getElementById('eq-kw-new-input');
+  if (!sel || !input) return;
+  eqAddKeyword(sel.value, input.value);
+  input.value = '';
+}
+
+function openEqModal() {
+  if (!rawData.length) return;
+  document.getElementById('eq-modal').classList.add('open');
+  const emptyState = document.getElementById('eq-empty-state');
+  if (emptyState) emptyState.style.display = insumosSheetFound ? 'none' : '';
+  renderEqKeywordEditor();
+  renderEqModal();
+}
+function closeEqModal() {
+  const modal = document.getElementById('eq-modal');
+  if (modal) modal.classList.remove('open');
+  document.querySelectorAll('#eq-modal .ms-dropdown.open').forEach(d => d.classList.remove('open'));
+  document.querySelectorAll('#eq-modal .ms-trigger.open').forEach(d => d.classList.remove('open'));
+}
+
+/* ══════════════════════════════════════════════════════
+   EXPORT — Linha de Equipamentos (XLSX / PDF)
+══════════════════════════════════════════════════════ */
+function exportEqXLSX() {
+  const clientRows = buildEqClientAgg();
+  const linhaRows  = buildEqLinhaBreakdown();
+  const wb = XLSX.utils.book_new();
+
+  const cliSheet = [
+    ['Cliente','Margem (%)','Faturamento (R$)','Custo Insumos (R$)','Aluguéis (R$) — informativo','Custo Total (R$) — Insumos+Impostos+Rateio','Impostos (R$)','Desp. Adm. (R$)','Resultado (R$)'],
+    ...clientRows.map(r => [r.name, r.fat>0?(r.margem*100):null, r.fat, r.insumos, r.alugueis, r.custoTotal, r.impostos, r.adm, r.resAj]),
+  ];
+  {
+    const tFat = clientRows.reduce((s,r)=>s+r.fat,0);
+    const tInsCli = clientRows.reduce((s,r)=>s+r.insumos,0);
+    const tAlugCli = clientRows.reduce((s,r)=>s+r.alugueis,0);
+    const tCustoCli = clientRows.reduce((s,r)=>s+r.custoTotal,0);
+    const tImpCli = clientRows.reduce((s,r)=>s+r.impostos,0);
+    const tAdmCli = clientRows.reduce((s,r)=>s+r.adm,0);
+    const tResAjCli = clientRows.reduce((s,r)=>s+r.resAj,0);
+    cliSheet.push(['TOTAL', tFat>0?+((tResAjCli/tFat)*100).toFixed(4):null, tFat, tInsCli, tAlugCli, tCustoCli, tImpCli, tAdmCli, tResAjCli]);
+  }
+  const ws1 = XLSX.utils.aoa_to_sheet(cliSheet);
+  XLSX.utils.book_append_sheet(wb, ws1, 'Por Cliente');
+
+  const linhaSheet = [
+    ['Linha de Equipamento','Insumos (R$)','Impostos (R$, rateado)','Desp. Adm. (R$, rateado)','Custo Real (R$)','Faturamento Proporcional (R$, base do Imposto/Rateio)','Faturamento Global dos Clientes da Linha (R$)','% Participação'],
+    ...linhaRows.map(r => [r.linha, r.insumos, r.impostos, r.adm, r.custoReal, r.fatProporcional, r.fatGlobal, r.fatGlobal>0?+(r.pct*100).toFixed(4):null]),
+  ];
+  // Linha de totais: soma simples das colunas monetárias. O % Participação
+  // total usa o Faturamento total dos clientes do cenário (soma de
+  // clientRows.fat, sem duplicação) como base — não a soma de fatGlobal
+  // por Linha, que contaria clientes multi-Linha mais de uma vez.
+  {
+    const totalFatCliRows = clientRows.reduce((s,r)=>s+r.fat,0);
+    const tIns = linhaRows.reduce((s,r)=>s+r.insumos,0);
+    const tImp = linhaRows.reduce((s,r)=>s+r.impostos,0);
+    const tAdm = linhaRows.reduce((s,r)=>s+r.adm,0);
+    const tCusto = linhaRows.reduce((s,r)=>s+r.custoReal,0);
+    const tFatProp = linhaRows.reduce((s,r)=>s+r.fatProporcional,0);
+    linhaSheet.push(['TOTAL', tIns, tImp, tAdm, tCusto, tFatProp, totalFatCliRows, totalFatCliRows>0?+((tCusto/totalFatCliRows)*100).toFixed(4):null]);
+  }
+  const ws2 = XLSX.utils.aoa_to_sheet(linhaSheet);
+  XLSX.utils.book_append_sheet(wb, ws2, 'Por Linha');
+
+  const unclassSheet = [
+    ['Produto (não classificado)','Valor (R$)'],
+    ...Object.entries(eqUnclassified).sort((a,b)=>b[1]-a[1]).map(([p,v])=>[p,v]),
+  ];
+  const ws3 = XLSX.utils.aoa_to_sheet(unclassSheet);
+  XLSX.utils.book_append_sheet(wb, ws3, 'Não Classificados');
+
+  const now = new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
+  XLSX.writeFile(wb, `Grupo_Labmedic_Linha_de_Equipamentos_${now}.xlsx`);
+}
+
+function exportEqPDF() {
+  const clientRows = buildEqClientAgg();
+  const totalFat   = clientRows.reduce((s,r)=>s+r.fat,0);
+  const totalIns   = clientRows.reduce((s,r)=>s+r.insumos,0);
+  const totalAlug  = clientRows.reduce((s,r)=>s+r.alugueis,0);
+  const totalCusto = clientRows.reduce((s,r)=>s+r.custoTotal,0);
+  const totalImp   = clientRows.reduce((s,r)=>s+r.impostos,0);
+  const totalAdm   = clientRows.reduce((s,r)=>s+r.adm,0);
+  const totalResAj = clientRows.reduce((s,r)=>s+r.resAj,0);
+  const linhaRows  = buildEqLinhaBreakdown();
+  const now = new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});
+  const fileName = document.getElementById('file-name-display').textContent;
+
+  const fEmp = [...eqFilters.eqEmpresa].join(', ') || '—';
+  const fAno = [...eqFilters.eqAno].sort().join(', ') || '—';
+  const fMes = [...eqFilters.eqMes].sort((a,b)=>a-b).map(m=>MESES[m]).join(', ') || '—';
+  const fCli = eqFilters.eqCliente.size === eqAllValues.eqCliente.length ? 'Todos' : `${eqFilters.eqCliente.size} selecionados`;
+  const fLinha = eqFilters.eqLinha.size === eqAllValues.eqLinha.length ? 'Todas' : [...eqFilters.eqLinha].join(', ');
+
+  const cliRowsHtml = clientRows.map((r,i) => `
+    <tr class="${i%2===0?'even':''}">
+      <td class="c">${i+1}</td>
+      <td>${escapeHtml(r.name)}</td>
+      <td class="r" style="font-weight:700;color:${r.margem>=0?'#059669':'#DC2626'}">${r.fat>0?(r.margem*100).toFixed(2).replace('.',',')+'%':'—'}</td>
+      <td class="r">${fmtR(r.fat)}</td>
+      <td class="r">${fmtR(r.insumos)}</td>
+      <td class="r purple">${fmtR(r.alugueis)}</td>
+      <td class="r">${fmtR(r.custoTotal)}</td>
+      <td class="r red">${fmtR(r.impostos)}</td>
+      <td class="r" style="color:#B45309">${fmtR(r.adm)}</td>
+      <td class="r" style="color:${r.resAj>=0?'#059669':'#DC2626'};font-weight:700">${fmtR(r.resAj)}</td>
+    </tr>`).join('');
+
+  const linhaRowsHtml = linhaRows.map((r,i) => `
+    <tr class="${i%2===0?'even':''}">
+      <td>${escapeHtml(r.linha)}</td>
+      <td class="r">${fmtR(r.insumos)}</td>
+      <td class="r red">${fmtR(r.impostos)}</td>
+      <td class="r" style="color:#B45309">${fmtR(r.adm)}</td>
+      <td class="r"><strong>${fmtR(r.custoReal)}</strong></td>
+      <td class="r">${fmtR(r.fatProporcional)}</td>
+      <td class="r">${r.fatGlobal>0?(r.pct*100).toFixed(2).replace('.',',')+'%':'—'}</td>
+    </tr>`).join('');
+
+  // Totais da tabela "Por Linha": somas simples de Insumos/Impostos/Desp.
+  // Adm./Custo Real/Faturamento Proporcional. O % Participação total usa
+  // totalFat (Faturamento total dos clientes do cenário, já calculado
+  // acima a partir de clientRows) como base — não a soma de fatGlobal por
+  // Linha, que contaria clientes multi-Linha mais de uma vez.
+  const totalLinhaIns    = linhaRows.reduce((s,r)=>s+r.insumos,0);
+  const totalLinhaImp    = linhaRows.reduce((s,r)=>s+r.impostos,0);
+  const totalLinhaAdm    = linhaRows.reduce((s,r)=>s+r.adm,0);
+  const totalLinhaCusto  = linhaRows.reduce((s,r)=>s+r.custoReal,0);
+  const totalLinhaFatProp = linhaRows.reduce((s,r)=>s+r.fatProporcional,0);
+  const totalLinhaPct    = totalFat > 0 ? totalLinhaCusto / totalFat : 0;
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head>
+  <meta charset="UTF-8">
+  <title>Grupo Labmedic — Lucratividade por Linha de Equipamentos</title>
+  <style>
+    @page { size: A4 landscape; margin: 12mm 14mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 8.5pt; color: #1a202c; background: #fff; }
+    .header { display:flex; justify-content:space-between; align-items:flex-end; padding-bottom:8px; border-bottom:2.5px solid #1B3A6B; margin-bottom:12px; }
+    .header-left h1 { font-size:16pt; font-weight:800; color:#1B3A6B; letter-spacing:-.3px; }
+    .header-left p  { font-size:8pt; color:#64748b; margin-top:2px; }
+    .header-right   { text-align:right; font-size:7.5pt; color:#64748b; line-height:1.5; }
+    .kpi-row { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:12px; }
+    .kpi { background:#F8FAFC; border:1px solid #E2E8F0; border-radius:6px; padding:7px 9px; }
+    .kpi-label { font-size:6.5pt; color:#94A3B8; text-transform:uppercase; letter-spacing:.04em; margin-bottom:2px; }
+    .kpi-val   { font-size:10pt; font-weight:800; color:#1B3A6B; line-height:1.1; }
+    .kpi-val.green  { color:#059669; } .kpi-val.red { color:#DC2626; } .kpi-val.purple { color:#7C3AED; }
+    .section-title { font-size:9pt; font-weight:700; color:#1B3A6B; border-left:3px solid #3B82F6; padding-left:7px; margin:12px 0 6px; }
+    table { width:100%; border-collapse:collapse; font-size:7.5pt; }
+    thead th { background:#1B3A6B; color:#fff; padding:5px 6px; font-weight:700; font-size:7pt; text-align:left; white-space:nowrap; }
+    thead th.r { text-align:right; } thead th.c { text-align:center; }
+    tbody tr.even td { background:#F8FAFC; }
+    tbody td { padding:4px 6px; border-bottom:1px solid #E2E8F0; vertical-align:middle; }
+    td.r { text-align:right; font-variant-numeric:tabular-nums; } td.c { text-align:center; }
+    td.red { color:#DC2626; } td.purple { color:#7C3AED; } td.muted { color:#64748B; }
+    tfoot td { background:#1B3A6B; color:#fff; font-weight:700; padding:5px 6px; } tfoot td.r{ text-align:right; }
+    .two-col { display:grid; grid-template-columns:1.6fr 1fr; gap:14px; margin-bottom:12px; }
+    .footer { border-top:1px solid #E2E8F0; padding-top:6px; margin-top:10px; display:flex; justify-content:space-between; font-size:6.5pt; color:#94A3B8; }
+    tr { page-break-inside: avoid; break-inside: avoid; }
+    thead { display: table-header-group; } tfoot { display: table-footer-group; }
+  </style>
+</head><body>
+<div class="header">
+  <div class="header-left">
+    <h1>Grupo Labmedic — Lucratividade por Linha de Equipamentos</h1>
+    <p>Fonte: ${escapeHtml(fileName)} &nbsp;|&nbsp; Gerado em: ${now}</p>
+  </div>
+  <div class="header-right">
+    <div><strong>Empresas:</strong> ${fEmp}</div>
+    <div><strong>Anos:</strong> ${fAno} &nbsp;|&nbsp; <strong>Meses:</strong> ${fMes}</div>
+    <div><strong>Clientes:</strong> ${fCli}</div>
+    <div><strong>Linhas:</strong> ${fLinha}</div>
+  </div>
+</div>
+<div class="kpi-row">
+  <div class="kpi"><div class="kpi-label">Faturamento</div><div class="kpi-val">${fmtR(totalFat)}</div></div>
+  <div class="kpi"><div class="kpi-label">Custo Insumos</div><div class="kpi-val">${fmtR(totalIns)}</div></div>
+  <div class="kpi"><div class="kpi-label">Aluguéis (informativo)</div><div class="kpi-val purple">${fmtR(totalAlug)}</div></div>
+  <div class="kpi"><div class="kpi-label">Custo Total (Insumos+Impostos+Rateio)</div><div class="kpi-val">${fmtR(totalCusto)}</div></div>
+  <div class="kpi"><div class="kpi-label">Impostos</div><div class="kpi-val red">${fmtR(totalImp)}</div></div>
+  <div class="kpi"><div class="kpi-label">Desp. Adm.</div><div class="kpi-val purple">${fmtR(totalAdm)}</div></div>
+  <div class="kpi"><div class="kpi-label">Resultado</div><div class="kpi-val ${totalResAj>=0?'green':'red'}">${fmtR(totalResAj)}</div></div>
+</div>
+<p style="font-size:6.8pt;color:#64748B;margin:-6px 0 10px">Resultado = Faturamento − Custo dos Insumos − Impostos − rateio de Despesas Adm. Os Aluguéis são exibidos apenas como dado informativo e não entram nesse cálculo.</p>
+<div class="two-col">
+  <div>
+    <div class="section-title">Lucratividade por Cliente (ordenado por Margem)</div>
+    <table>
+      <thead><tr><th class="c">#</th><th>Cliente</th><th class="r">Margem</th><th class="r">Faturamento</th><th class="r">Insumos</th><th class="r">Aluguéis (inform.)</th><th class="r">Custo Total</th><th class="r">Impostos</th><th class="r">Adm</th><th class="r">Resultado</th></tr></thead>
+      <tbody>${cliRowsHtml}</tbody>
+      <tfoot><tr><td colspan="3">TOTAL</td><td class="r">${fmtR(totalFat)}</td><td class="r">${fmtR(totalIns)}</td><td class="r">${fmtR(totalAlug)}</td><td class="r">${fmtR(totalCusto)}</td><td class="r">${fmtR(totalImp)}</td><td class="r">${fmtR(totalAdm)}</td><td class="r">${fmtR(totalResAj)}</td></tr></tfoot>
+    </table>
+  </div>
+  <div>
+    <div class="section-title">Custo por Linha de Equipamento</div>
+    <table>
+      <thead><tr><th>Linha</th><th class="r">Insumos</th><th class="r">Impostos</th><th class="r">Desp. Adm.</th><th class="r">Custo Real</th><th class="r">Fat. Proporcional</th><th class="r">% Participação</th></tr></thead>
+      <tbody>${linhaRowsHtml}</tbody>
+      <tfoot><tr><td>TOTAL</td><td class="r">${fmtR(totalLinhaIns)}</td><td class="r">${fmtR(totalLinhaImp)}</td><td class="r">${fmtR(totalLinhaAdm)}</td><td class="r">${fmtR(totalLinhaCusto)}</td><td class="r">${fmtR(totalLinhaFatProp)}</td><td class="r">${totalFat>0?(totalLinhaPct*100).toFixed(2).replace('.',',')+'%':'—'}</td></tr></tfoot>
+    </table>
+    <p style="font-size:6.5pt;color:#64748B;margin-top:6px">Custo Real = Insumos + Impostos + rateio de Despesas Adm. atribuídos à Linha. Impostos/Rateio são apurados por cliente (a aba Faturamento não tem coluna Linha); cada cliente tem seus valores rateados entre as linhas em que compra, proporcional ao peso de Insumos+Aluguéis naquela linha. Fat. Proporcional é a fatia do Faturamento que de fato serviu de base para os Impostos/Desp. Adm. desta Linha. % Participação compara o Custo Real com o Faturamento GLOBAL (total do período, não rateado) dos clientes que compram naquela Linha.</p>
+  </div>
+</div>
+<div class="footer"><span>Grupo Labmedic - Ambiente Confidencial</span><span>${now}</span></div>
+</body></html>`;
+
+  printReportDocument(html, `Grupo Labmedic_Linha_de_Equipamentos_${now.replace(/[^0-9a-zA-Z]+/g,'-')}`);
+}
+
 // Close dropdowns on ESC
 document.addEventListener('keydown', e => {
   if (e.key==='Escape') {
     if (document.getElementById('client-modal')?.classList.contains('open')) closeClientModal();
     if (document.getElementById('pat-cliente-modal')?.classList.contains('open')) closePatClienteDetalhes();
     if (document.getElementById('patrimonio-modal')?.classList.contains('open')) closePatrimonioModal();
+    if (document.getElementById('eq-modal')?.classList.contains('open')) closeEqModal();
     document.querySelectorAll('.ms-dropdown.open').forEach(d=>d.classList.remove('open'));
     document.querySelectorAll('.ms-trigger.open').forEach(d=>d.classList.remove('open'));
   }
