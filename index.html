@@ -1159,6 +1159,18 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
 .adm-progress.active { opacity: 1; }
 .adm-progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), #8B5CF6); transition: width .08s linear; }
 .param-caption { font-size:.68rem; color: var(--dim); line-height:1.4; padding: 0 .1rem; max-width: 15.5rem; }
+.param-caption.param-caption-wide { max-width: none; }
+
+/* Cards retráteis (usados no modal "Lucratividade por Linha de Equipamentos") */
+.eq-card-collapsible .eq-card-title-toggle { cursor: pointer; user-select: none; }
+.eq-card-collapsible .eq-chevron {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; margin-right: .35rem;
+  font-size: .75rem; transition: transform .2s;
+}
+.eq-card-collapsible.eq-collapsed .eq-chevron { transform: rotate(-90deg); }
+.eq-card-collapsible .eq-card-body { display: block; }
+.eq-card-collapsible.eq-collapsed .eq-card-body { display: none; }
 .params-bar.params-bar-secondary { position: static; top: auto; z-index: auto; border-bottom: 1px dashed var(--border); }
 
 /* ─── CARD: CLIENTES FILTRADOS (ao lado de "Base do Rateio") ───────── */
@@ -1407,7 +1419,7 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
 
     <button class="btn-clear-all" id="btn-clear-all" onclick="clearAllFilters()">✕ Limpar filtros</button>
     <button class="btn-clear-all" id="btn-open-eq-modal" onclick="openEqModal()" style="background:linear-gradient(135deg,#7C3AED,#4F46E5);color:#fff;border-color:transparent;font-weight:700;box-shadow:0 2px 10px rgba(124,58,237,.4)">
-      🔬 Lucratividade por Linha de Equipamentos
+      🔬 Lucratividade por Linha
     </button>
   </div>
   <!-- PARAMS BAR -->
@@ -1466,7 +1478,7 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
 
     <div class="param-group" id="result-filter-group">
       <div class="param-field" style="min-width:220px">
-        <label for="select-result-filter">Exibir Clientes</label>
+        <label for="select-result-filter">Exibir Clientes (Só positivos ou só negativos)</label>
         <select id="select-result-filter" onchange="setResultFilter(this.value)" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.55);color:inherit;font-weight:600;cursor:pointer">
           <option value="all">Todos</option>
           <option value="pos">Apenas positivos</option>
@@ -1905,7 +1917,7 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
         <strong>Resultado</strong>. Os <strong>Aluguéis</strong> (aba Aluguéis) aparecem apenas como dado
         <strong>informativo</strong> ao lado (KPI e coluna "Aluguéis"), sem entrar no Custo Total nem na
         análise de lucratividade. O filtro <strong>Linha</strong> restringe quais linhas de Insumos/Aluguéis entram nesses
-        totais — o Faturamento nunca é fatiado por linha (a aba de origem não tem essa coluna).
+        totais — o Faturamento não é fatiado por linha (a aba de origem não tem essa coluna), mas para efeito desta análise ele é proporcional ao peso que a Linha representa no montante de consumo do cliente.
       </p>
 
       <div class="pat-filters-grid">
@@ -1968,69 +1980,71 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
 
       <div class="client-summary-grid" id="eq-kpi-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));margin:1rem 0"></div>
 
-      <div class="client-section-grid">
-        <div class="client-card">
-          <div class="client-card-title"><h4>Lucratividade por Cliente</h4><span id="eq-cliente-table-count"></span></div>
-          <div style="overflow:auto;max-height:420px">
-            <table class="client-detail-table" id="eq-cliente-table">
-              <thead>
-                <tr>
-                  <th>Cliente</th><th class="num">Margem</th><th class="num">Faturamento</th><th class="num">Insumos</th><th class="num">Aluguéis (informativo)</th>
-                  <th class="num">Custo Total</th><th class="num">Impostos</th><th class="num">Desp. Adm.</th>
-                  <th class="num">Resultado</th>
-                </tr>
-              </thead>
-              <tbody id="eq-cliente-table-body"></tbody>
-              <tfoot id="eq-cliente-table-foot"></tfoot>
-            </table>
-          </div>
-        </div>
-        <div class="client-card">
-          <div class="client-card-title"><h4>Custo por Linha de Equipamento</h4><span>Insumos + Impostos + Rateio</span></div>
-          <div style="overflow:auto;max-height:420px">
-            <table class="client-detail-table" id="eq-linha-table">
-              <thead><tr><th>Linha</th><th class="num">Insumos</th><th class="num">Impostos</th><th class="num">Desp. Adm.</th><th class="num">Custo Real</th><th class="num">Faturamento Proporcional</th><th class="num">% Participação</th></tr></thead>
-              <tbody id="eq-linha-table-body"></tbody>
-              <tfoot id="eq-linha-table-foot"></tfoot>
-            </table>
-          </div>
-          <span class="param-caption" style="display:block;margin-top:.4rem">Custo Real = Insumos + Impostos + rateio de Despesas Adm. atribuídos à Linha. Como Impostos/Rateio são apurados por CLIENTE (a aba Faturamento não tem coluna Linha), cada cliente tem seus próprios valores rateados entre as linhas em que ele compra, proporcional ao peso de cada linha dentro dos Insumos+Aluguéis daquele cliente — preservando a composição real de clientes por trás de cada Linha (uma Linha comprada por clientes de margem mais apertada herda um Custo Real proporcionalmente maior). <strong>Faturamento Proporcional</strong> é a fatia do Faturamento de cada cliente que de fato serviu de base matemática para os Impostos/Desp. Adm. desta Linha (Faturamento × peso da Linha) — útil para conferir a conta ao filtrar um cliente específico. <strong>% Participação</strong> compara o Custo Real da Linha com o Faturamento GLOBAL (total do período, não rateado) dos clientes que compram naquela Linha — mostrando o quanto o custo daquela linha de consumo realmente representa diante do faturamento desses clientes.</span>
+      <div class="client-card">
+        <div class="client-card-title"><h4>Lucratividade por Cliente</h4><span id="eq-cliente-table-count"></span></div>
+        <div style="overflow:auto;max-height:420px">
+          <table class="client-detail-table" id="eq-cliente-table">
+            <thead>
+              <tr>
+                <th>Cliente</th><th class="num">Margem</th><th class="num">Faturamento</th><th class="num">Insumos</th><th class="num">Aluguéis (informativo)</th>
+                <th class="num">Custo Total</th><th class="num">Impostos</th><th class="num">Desp. Adm.</th>
+                <th class="num">Resultado</th>
+              </tr>
+            </thead>
+            <tbody id="eq-cliente-table-body"></tbody>
+            <tfoot id="eq-cliente-table-foot"></tfoot>
+          </table>
         </div>
       </div>
 
       <div class="client-card" style="margin-top:1rem">
-        <div class="client-card-title">
-          <h4>🗂️ Origem da classificação de Linha</h4>
-          <span>Fonte primária: aba "Linhas" da planilha</span>
+        <div class="client-card-title"><h4>Custo por Linha de Equipamento</h4><span>Insumos + Impostos + Rateio</span></div>
+        <div style="overflow:auto;max-height:420px">
+          <table class="client-detail-table" id="eq-linha-table">
+            <thead><tr><th>Linha</th><th class="num">Insumos</th><th class="num">Aluguéis (informativo)</th><th class="num">Impostos</th><th class="num">Desp. Adm.</th><th class="num">Custo Real</th><th class="num">Fat. Proporcional</th><th class="num">% Participação</th></tr></thead>
+            <tbody id="eq-linha-table-body"></tbody>
+            <tfoot id="eq-linha-table-foot"></tfoot>
+          </table>
         </div>
-        <span class="param-caption" id="eq-linha-source-stats" style="display:block"></span>
       </div>
 
       <div class="client-card" style="margin-top:1rem">
-        <div class="client-card-title">
-          <h4>⚙️ Classificação de Linha (palavras-chave — reserva)</h4>
+        <div class="client-card-title"><h4>📝 Observações — Custo por Linha de Equipamento</h4></div>
+        <span class="param-caption param-caption-wide" style="display:block">Custo Real = Insumos + Impostos + rateio de Despesas Adm. atribuídos à Linha. Como Impostos/Rateio são apurados por CLIENTE (a aba Faturamento não tem coluna Linha), cada cliente tem seus próprios valores rateados entre as linhas em que ele compra, proporcional ao peso de cada linha dentro dos Insumos+Aluguéis daquele cliente — preservando a composição real de clientes por trás de cada Linha (uma Linha comprada por clientes de margem mais apertada herda um Custo Real proporcionalmente maior). <strong>Aluguéis (informativo)</strong> mostra, para cada Linha, o total de Aluguéis (aba "Aluguéis", já filtrado pelos filtros ativos do modal) dos equipamentos classificados naquela Linha — assim como na tabela "Lucratividade por Cliente", esse valor é apenas informativo e não entra no Custo Real nem na análise de lucratividade. <strong>Fat. Proporcional</strong> é a fatia do Faturamento de cada cliente que de fato serviu de base matemática para os Impostos/Desp. Adm. desta Linha (Faturamento × peso da Linha) — útil para conferir a conta ao filtrar um cliente específico. <strong>% Participação</strong> compara o Custo Real da Linha com o Faturamento GLOBAL (total do período, não rateado) dos clientes que compram naquela Linha — mostrando o quanto o custo daquela linha de consumo realmente representa diante do faturamento desses clientes.</span>
+      </div>
+
+      <div class="client-card eq-card-collapsible eq-collapsed" style="margin-top:1rem" id="eq-classificacao-card">
+        <div class="client-card-title eq-card-title-toggle" onclick="eqToggleCard('eq-classificacao-card')">
+          <h4><span class="eq-chevron">▾</span>⚙️ Classificação de Linha (palavras-chave — reserva)</h4>
           <span>Só entra em ação quando o produto não é encontrado na aba "Linhas"</span>
         </div>
-        <span class="param-caption" style="display:block;margin-bottom:.6rem">A aba <strong>"Linhas"</strong> da planilha (coluna PRODUTO → LINHA) é agora a fonte principal de classificação — atualize-a na planilha para classificar um produto novo. Este dicionário de palavras-chave continua editável e reclassifica na hora (sem reimportar a planilha), mas só é usado como reserva para produtos ainda ausentes da aba "Linhas".</span>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:.6rem">
-          <select id="eq-kw-linha-select" onchange="renderEqKeywordEditor()" style="padding:6px 8px;border-radius:6px"></select>
-          <input type="text" id="eq-kw-new-input" placeholder="Nova palavra-chave…" style="padding:6px 8px;border-radius:6px;min-width:220px">
-          <button class="client-modal-btn primary" onclick="eqAddKeywordFromInput()">+ Adicionar</button>
+        <div class="eq-card-body">
+          <div class="client-card" style="margin-bottom:.85rem">
+            <div class="client-card-title"><h4>📝 Observações</h4></div>
+            <span class="param-caption param-caption-wide" style="display:block">A aba <strong>"Linhas"</strong> da planilha (coluna PRODUTO → LINHA) é agora a fonte principal de classificação — atualize-a na planilha para classificar um produto novo. Este dicionário de palavras-chave continua editável e reclassifica na hora (sem reimportar a planilha), mas só é usado como reserva para produtos ainda ausentes da aba "Linhas".</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:.6rem">
+            <select id="eq-kw-linha-select" onchange="renderEqKeywordEditor()" style="padding:6px 8px;border-radius:6px"></select>
+            <input type="text" id="eq-kw-new-input" placeholder="Nova palavra-chave…" style="padding:6px 8px;border-radius:6px;min-width:220px">
+            <button class="client-modal-btn primary" onclick="eqAddKeywordFromInput()">+ Adicionar</button>
+          </div>
+          <div id="eq-kw-chips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
         </div>
-        <div id="eq-kw-chips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
       </div>
 
-      <div class="client-card" style="margin-top:1rem">
-        <div class="client-card-title">
-          <h4>Itens não classificados</h4>
+      <div class="client-card eq-card-collapsible eq-collapsed" style="margin-top:1rem" id="eq-unclassified-card">
+        <div class="client-card-title eq-card-title-toggle" onclick="eqToggleCard('eq-unclassified-card')">
+          <h4><span class="eq-chevron">▾</span>Itens não classificados</h4>
           <span id="eq-unclassified-count"></span>
         </div>
-        <span class="param-caption" style="display:block;margin-bottom:.4rem">Produtos que não foram encontrados na aba "Linhas" (nem por nome exato, nem por nome-base ignorando lote/validade) e também não bateram com nenhuma palavra-chave. Classifique aqui na hora ou, de preferência, cadastre o produto na aba "Linhas" da planilha.</span>
-        <div style="overflow:auto;max-height:340px">
-          <table class="client-detail-table">
-            <thead><tr><th>Produto</th><th class="num">Valor</th><th>Classificar como…</th></tr></thead>
-            <tbody id="eq-unclassified-body"></tbody>
-          </table>
+        <div class="eq-card-body">
+          <span class="param-caption param-caption-wide" style="display:block;margin-bottom:.6rem">Produtos que não foram encontrados na aba "Linhas" (nem por nome exato, nem por nome-base ignorando lote/validade) e também não bateram com nenhuma palavra-chave. Classifique aqui na hora ou, de preferência, cadastre o produto na aba "Linhas" da planilha.</span>
+          <div style="overflow:auto;max-height:340px">
+            <table class="client-detail-table">
+              <thead><tr><th>Produto</th><th class="num">Valor</th><th>Classificar como…</th></tr></thead>
+              <tbody id="eq-unclassified-body"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -7880,6 +7894,7 @@ function renderEqModal() {
       <tr>
         <td>${escapeHtml(r.linha)}</td>
         <td class="num">${fmtR(r.insumos)}</td>
+        <td class="num" style="color:var(--purple)">${fmtR(r.alugueis)}</td>
         <td class="num" style="color:var(--red)">${fmtR(r.impostos)}</td>
         <td class="num" style="color:var(--amber)">${fmtR(r.adm)}</td>
         <td class="num"><strong>${fmtR(r.custoReal)}</strong></td>
@@ -7899,6 +7914,7 @@ function renderEqModal() {
   const tfootLinha = document.getElementById('eq-linha-table-foot');
   if (tfootLinha) {
     const totalLinhaInsumos = linhaRows.reduce((s,r)=>s+r.insumos,0);
+    const totalLinhaAlugueis = linhaRows.reduce((s,r)=>s+r.alugueis,0);
     const totalLinhaImpostos = linhaRows.reduce((s,r)=>s+r.impostos,0);
     const totalLinhaAdm = linhaRows.reduce((s,r)=>s+r.adm,0);
     const totalLinhaCustoReal = linhaRows.reduce((s,r)=>s+r.custoReal,0);
@@ -7908,6 +7924,7 @@ function renderEqModal() {
       <tr class="totals-row">
         <td class="totals-label">TOTAL</td>
         <td class="num">${fmtR(totalLinhaInsumos)}</td>
+        <td class="num" style="color:var(--purple)">${fmtR(totalLinhaAlugueis)}</td>
         <td class="num" style="color:var(--red)">${fmtR(totalLinhaImpostos)}</td>
         <td class="num" style="color:var(--amber)">${fmtR(totalLinhaAdm)}</td>
         <td class="num">${fmtR(totalLinhaCustoReal)}</td>
@@ -7932,6 +7949,16 @@ function renderEqModal() {
    "Linhas", palavra-chave de reserva, ou nenhuma das duas (NÃO
    CLASSIFICADO) — para o usuário enxergar o quanto a aba "Linhas" já
    resolve sozinha. */
+/* Alterna a exibição (recolhido/expandido) de um card retrátil do modal
+   "Lucratividade por Linha de Equipamentos" — usado em "Classificação de
+   Linha (palavras-chave — reserva)" e "Itens não classificados", ambos
+   iniciando recolhidos (classe eq-collapsed já presente no HTML). */
+function eqToggleCard(id) {
+  const card = document.getElementById(id);
+  if (!card) return;
+  card.classList.toggle('eq-collapsed');
+}
+
 function renderEqLinhaSourceStats() {
   const el = document.getElementById('eq-linha-source-stats');
   if (!el) return;
@@ -8055,8 +8082,8 @@ function exportEqXLSX() {
   XLSX.utils.book_append_sheet(wb, ws1, 'Por Cliente');
 
   const linhaSheet = [
-    ['Linha de Equipamento','Insumos (R$)','Impostos (R$, rateado)','Desp. Adm. (R$, rateado)','Custo Real (R$)','Faturamento Proporcional (R$, base do Imposto/Rateio)','Faturamento Global dos Clientes da Linha (R$)','% Participação'],
-    ...linhaRows.map(r => [r.linha, r.insumos, r.impostos, r.adm, r.custoReal, r.fatProporcional, r.fatGlobal, r.fatGlobal>0?+(r.pct*100).toFixed(4):null]),
+    ['Linha de Equipamento','Insumos (R$)','Aluguéis (R$) — informativo','Impostos (R$, rateado)','Desp. Adm. (R$, rateado)','Custo Real (R$)','Fat. Proporcional (R$, base do Imposto/Rateio)','Faturamento Global dos Clientes da Linha (R$)','% Participação'],
+    ...linhaRows.map(r => [r.linha, r.insumos, r.alugueis, r.impostos, r.adm, r.custoReal, r.fatProporcional, r.fatGlobal, r.fatGlobal>0?+(r.pct*100).toFixed(4):null]),
   ];
   // Linha de totais: soma simples das colunas monetárias. O % Participação
   // total usa o Faturamento total dos clientes do cenário (soma de
@@ -8065,11 +8092,12 @@ function exportEqXLSX() {
   {
     const totalFatCliRows = clientRows.reduce((s,r)=>s+r.fat,0);
     const tIns = linhaRows.reduce((s,r)=>s+r.insumos,0);
+    const tAlug = linhaRows.reduce((s,r)=>s+r.alugueis,0);
     const tImp = linhaRows.reduce((s,r)=>s+r.impostos,0);
     const tAdm = linhaRows.reduce((s,r)=>s+r.adm,0);
     const tCusto = linhaRows.reduce((s,r)=>s+r.custoReal,0);
     const tFatProp = linhaRows.reduce((s,r)=>s+r.fatProporcional,0);
-    linhaSheet.push(['TOTAL', tIns, tImp, tAdm, tCusto, tFatProp, totalFatCliRows, totalFatCliRows>0?+((tCusto/totalFatCliRows)*100).toFixed(4):null]);
+    linhaSheet.push(['TOTAL', tIns, tAlug, tImp, tAdm, tCusto, tFatProp, totalFatCliRows, totalFatCliRows>0?+((tCusto/totalFatCliRows)*100).toFixed(4):null]);
   }
   const ws2 = XLSX.utils.aoa_to_sheet(linhaSheet);
   XLSX.utils.book_append_sheet(wb, ws2, 'Por Linha');
@@ -8122,6 +8150,7 @@ function exportEqPDF() {
     <tr class="${i%2===0?'even':''}">
       <td>${escapeHtml(r.linha)}</td>
       <td class="r">${fmtR(r.insumos)}</td>
+      <td class="r purple">${fmtR(r.alugueis)}</td>
       <td class="r red">${fmtR(r.impostos)}</td>
       <td class="r" style="color:#B45309">${fmtR(r.adm)}</td>
       <td class="r"><strong>${fmtR(r.custoReal)}</strong></td>
@@ -8135,6 +8164,7 @@ function exportEqPDF() {
   // acima a partir de clientRows) como base — não a soma de fatGlobal por
   // Linha, que contaria clientes multi-Linha mais de uma vez.
   const totalLinhaIns    = linhaRows.reduce((s,r)=>s+r.insumos,0);
+  const totalLinhaAlug   = linhaRows.reduce((s,r)=>s+r.alugueis,0);
   const totalLinhaImp    = linhaRows.reduce((s,r)=>s+r.impostos,0);
   const totalLinhaAdm    = linhaRows.reduce((s,r)=>s+r.adm,0);
   const totalLinhaCusto  = linhaRows.reduce((s,r)=>s+r.custoReal,0);
@@ -8206,11 +8236,11 @@ function exportEqPDF() {
   <div>
     <div class="section-title">Custo por Linha de Equipamento</div>
     <table>
-      <thead><tr><th>Linha</th><th class="r">Insumos</th><th class="r">Impostos</th><th class="r">Desp. Adm.</th><th class="r">Custo Real</th><th class="r">Fat. Proporcional</th><th class="r">% Participação</th></tr></thead>
+      <thead><tr><th>Linha</th><th class="r">Insumos</th><th class="r">Aluguéis (inform.)</th><th class="r">Impostos</th><th class="r">Desp. Adm.</th><th class="r">Custo Real</th><th class="r">Fat. Proporcional</th><th class="r">% Participação</th></tr></thead>
       <tbody>${linhaRowsHtml}</tbody>
-      <tfoot><tr><td>TOTAL</td><td class="r">${fmtR(totalLinhaIns)}</td><td class="r">${fmtR(totalLinhaImp)}</td><td class="r">${fmtR(totalLinhaAdm)}</td><td class="r">${fmtR(totalLinhaCusto)}</td><td class="r">${fmtR(totalLinhaFatProp)}</td><td class="r">${totalFat>0?(totalLinhaPct*100).toFixed(2).replace('.',',')+'%':'—'}</td></tr></tfoot>
+      <tfoot><tr><td>TOTAL</td><td class="r">${fmtR(totalLinhaIns)}</td><td class="r">${fmtR(totalLinhaAlug)}</td><td class="r">${fmtR(totalLinhaImp)}</td><td class="r">${fmtR(totalLinhaAdm)}</td><td class="r">${fmtR(totalLinhaCusto)}</td><td class="r">${fmtR(totalLinhaFatProp)}</td><td class="r">${totalFat>0?(totalLinhaPct*100).toFixed(2).replace('.',',')+'%':'—'}</td></tr></tfoot>
     </table>
-    <p style="font-size:6.5pt;color:#64748B;margin-top:6px">Custo Real = Insumos + Impostos + rateio de Despesas Adm. atribuídos à Linha. Impostos/Rateio são apurados por cliente (a aba Faturamento não tem coluna Linha); cada cliente tem seus valores rateados entre as linhas em que compra, proporcional ao peso de Insumos+Aluguéis naquela linha. Fat. Proporcional é a fatia do Faturamento que de fato serviu de base para os Impostos/Desp. Adm. desta Linha. % Participação compara o Custo Real com o Faturamento GLOBAL (total do período, não rateado) dos clientes que compram naquela Linha.</p>
+    <p style="font-size:6.5pt;color:#64748B;margin-top:6px">Custo Real = Insumos + Impostos + rateio de Despesas Adm. atribuídos à Linha. Impostos/Rateio são apurados por cliente (a aba Faturamento não tem coluna Linha); cada cliente tem seus valores rateados entre as linhas em que compra, proporcional ao peso de Insumos+Aluguéis naquela linha. Aluguéis (inform.) é o total de Aluguéis da Linha, apenas informativo. Fat. Proporcional é a fatia do Faturamento que de fato serviu de base para os Impostos/Desp. Adm. desta Linha. % Participação compara o Custo Real com o Faturamento GLOBAL (total do período, não rateado) dos clientes que compram naquela Linha.</p>
   </div>
 </div>
 <div class="footer"><span>Grupo Labmedic - Ambiente Confidencial</span><span>${now}</span></div>
