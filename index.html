@@ -1159,6 +1159,21 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
 .adm-progress.active { opacity: 1; }
 .adm-progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), #8B5CF6); transition: width .08s linear; }
 .param-caption { font-size:.68rem; color: var(--dim); line-height:1.4; padding: 0 .1rem; max-width: 15.5rem; }
+/* Quadro "Observações — Custo por Linha de Equipamento": texto explicativo
+   com mais destaque visual que uma legenda comum (.param-caption) — fundo
+   suave + borda de acento + fonte maior, para chamar atenção como um
+   aviso/nota de leitura, não como um rodapé discreto. */
+.eq-obs-box {
+  background: var(--amber-bg);
+  border-left: 3px solid var(--amber);
+  border-radius: 8px;
+  padding: .9rem 1.1rem;
+  font-size: .8rem;
+  line-height: 1.65;
+  color: var(--text);
+  max-width: none;
+}
+.eq-obs-box strong { color: var(--amber); font-weight: 700; }
 .param-caption.param-caption-wide { max-width: none; }
 
 /* Cards retráteis (usados no modal "Lucratividade por Linha de Equipamentos") */
@@ -2010,7 +2025,7 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
 
       <div class="client-card" style="margin-top:1rem">
         <div class="client-card-title"><h4>📝 Observações — Custo por Linha de Equipamento</h4></div>
-        <span class="param-caption param-caption-wide" style="display:block">Custo Real = Insumos + Impostos + rateio de Despesas Adm. atribuídos à Linha. Como Impostos/Rateio são apurados por CLIENTE (a aba Faturamento não tem coluna Linha), cada cliente tem seus próprios valores rateados entre as linhas em que ele compra, proporcional ao peso de cada linha dentro dos Insumos+Aluguéis daquele cliente — preservando a composição real de clientes por trás de cada Linha (uma Linha comprada por clientes de margem mais apertada herda um Custo Real proporcionalmente maior). <strong>Aluguéis (informativo)</strong> mostra, para cada Linha, o total de Aluguéis (aba "Aluguéis", já filtrado pelos filtros ativos do modal) dos equipamentos classificados naquela Linha — assim como na tabela "Lucratividade por Cliente", esse valor é apenas informativo e não entra no Custo Real nem na análise de lucratividade. <strong>Fat. Proporcional</strong> é a fatia do Faturamento de cada cliente que de fato serviu de base matemática para os Impostos/Desp. Adm. desta Linha (Faturamento × peso da Linha) — útil para conferir a conta ao filtrar um cliente específico. <strong>% Participação</strong> compara o Custo Real da Linha com o Faturamento GLOBAL (total do período, não rateado) dos clientes que compram naquela Linha — mostrando o quanto o custo daquela linha de consumo realmente representa diante do faturamento desses clientes.</span>
+        <div class="eq-obs-box">Custo Real = Insumos + Impostos + rateio de Despesas Adm. atribuídos à Linha. Como Impostos/Rateio são apurados por CLIENTE (a aba Faturamento não tem coluna Linha), cada cliente tem seus próprios valores rateados entre as linhas em que ele compra, proporcional ao peso de cada linha dentro dos Insumos+Aluguéis daquele cliente — preservando a composição real de clientes por trás de cada Linha (uma Linha comprada por clientes de margem mais apertada herda um Custo Real proporcionalmente maior). <strong>Aluguéis (informativo)</strong> mostra, para cada Linha, o total de Aluguéis (aba "Aluguéis", já filtrado pelos filtros ativos do modal) dos equipamentos classificados naquela Linha — assim como na tabela "Lucratividade por Cliente", esse valor é apenas informativo e não entra no Custo Real nem na análise de lucratividade. <strong>Fat. Proporcional</strong> é a fatia do Faturamento de cada cliente que de fato serviu de base matemática para os Impostos/Desp. Adm. desta Linha (Faturamento × peso da Linha) — útil para conferir a conta ao filtrar um cliente específico. <strong>% Participação</strong> compara o Custo Real da Linha com o Faturamento GLOBAL (total do período, não rateado) dos clientes que compram naquela Linha — mostrando o quanto o custo daquela linha de consumo realmente representa diante do faturamento desses clientes.</div>
       </div>
 
       <div class="client-card eq-card-collapsible eq-collapsed" style="margin-top:1rem" id="eq-classificacao-card">
@@ -3702,6 +3717,17 @@ function buildFilterOptions() {
   const defaultUncheckedNorm = new Set(DEFAULT_UNCHECKED_CATEGORIES.map(norm));
   filters.categoria = new Set(allValues.categoria.filter(c => !defaultUncheckedNorm.has(norm(c))));
 
+  // ✅ Filtro inicial do dashboard principal: por padrão já abre restrito a
+  // Empresa = Diag Rio + Labmedic e Ano = ano corrente — mesmo critério
+  // (e mesmo motivo) já aplicado ao abrir o modal "Lucratividade por
+  // Linha de Equipamentos" (ver buildEqFilterOptions). Continuam 100%
+  // ajustáveis pelo usuário; se a empresa/ano padrão não existir nos
+  // dados importados, cai de volta para "selecionar tudo" nesse filtro.
+  const empresaPadrao = allValues.empresa.filter(e => e === 'DIAG RIO' || e === 'LABMEDIC');
+  filters.empresa = new Set(empresaPadrao.length ? empresaPadrao : allValues.empresa);
+  const anoCorrenteDash = new Date().getFullYear();
+  filters.ano     = new Set(allValues.ano.includes(anoCorrenteDash) ? [anoCorrenteDash] : allValues.ano);
+
   buildOptions('empresa',   allValues.empresa,   v=>v);
   buildOptions('ano',       allValues.ano,       v=>String(v));
   buildOptions('categoria', allValues.categoria, v=>v);
@@ -3771,6 +3797,15 @@ function buildOptions(id, values, labelFn) {
     `;
     container.appendChild(div);
   });
+  // ✅ Mantém o rótulo/badge do botão de filtro (ex.: "Empresa (2/4)")
+  // sempre sincronizado com o estado atual de filters[id] — inclusive na
+  // primeira renderização após importar a planilha, quando o filtro já
+  // pode abrir com uma seleção padrão parcial (ver buildFilterOptions).
+  // Sem isto, o rótulo ficava com o texto estático do HTML ("Todas as
+  // Empresas"/"Todos os Anos") até o usuário interagir manualmente com
+  // algum checkbox — mesmo padrão já usado no modal "Lucratividade por
+  // Linha de Equipamentos" (ver eqBuildOptions/eqUpdateFilterLabel).
+  updateFilterLabel(id);
 }
 
 /* Smart client filter: filter visible options AND update filters.cliente
@@ -7366,7 +7401,32 @@ function buildEqFilterOptions() {
   // Chave NORMALIZADA (não o texto de exibição) — ver eqClienteDisplayByKey
   // acima; é o que garante casar o mesmo cliente entre Faturamento/Insumos/
   // Aluguéis independentemente de pequenas variações de grafia.
+  // ✅ O filtro de Cliente (e a busca dentro dele) só deve oferecer
+  // clientes que de fato têm algum volume de Faturamento, Insumos ou
+  // Aluguéis em ALGUM ponto da base importada — mesmo critério de "sem
+  // expressão" já usado para não listar esses clientes no quadro
+  // "Lucratividade por Cliente" (ver buildEqClientAgg). Sem isto, um
+  // cliente cujos lançamentos somam zero (ex.: item de Insumos com valor
+  // zerado) continuava aparecendo como OPÇÃO no filtro e na busca, mesmo
+  // nunca podendo aparecer de fato na tabela depois de selecionado —
+  // confuso para quem está procurando um cliente específico.
+  const atividadePorCliente = {};
+  const bump = (cliente, campo, valor) => {
+    if (!cliente) return;
+    if (!atividadePorCliente[cliente]) atividadePorCliente[cliente] = { fat: 0, insumos: 0, alugueis: 0 };
+    atividadePorCliente[cliente][campo] += (valor || 0);
+  };
+  rawData.forEach(r => bump(r.cliente, 'fat', r.faturamento));
+  insumosEquipRaw.forEach(r => bump(r.cliente, 'insumos', r.valor));
+  alugueisEquipRaw.forEach(r => bump(r.cliente, 'alugueis', r.valor));
+  const clientesComAtividade = new Set(
+    Object.keys(atividadePorCliente).filter(c => {
+      const a = atividadePorCliente[c];
+      return Math.abs(a.fat) > 0.005 || Math.abs(a.insumos) > 0.005 || Math.abs(a.alugueis) > 0.005;
+    })
+  );
   eqAllValues.eqCliente = Object.keys(eqClienteDisplayByKey)
+    .filter(c => clientesComAtividade.has(c))
     .sort((a,b) => (eqClienteDisplayByKey[a]||a).localeCompare(eqClienteDisplayByKey[b]||b));
   // Universo de linhas: as categorias fixas (LINE_NAMES) que de fato têm
   // dado, MAIS qualquer valor de linha realmente encontrado nos dados que
