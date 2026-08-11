@@ -2001,7 +2001,7 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
         <div class="client-card-title"><h4>Custo por Linha de Equipamento</h4><span>Insumos + Impostos + Rateio</span></div>
         <div style="overflow:auto;max-height:420px">
           <table class="client-detail-table" id="eq-linha-table">
-            <thead><tr><th>Linha</th><th class="num">Insumos</th><th class="num">Aluguéis (informativo)</th><th class="num">Impostos</th><th class="num">Desp. Adm.</th><th class="num">Custo Real</th><th class="num">Fat. Proporcional</th><th class="num">% Participação</th></tr></thead>
+            <thead><tr><th></th><th>Linha</th><th class="num">Insumos</th><th class="num">Aluguéis (informativo)</th><th class="num">Impostos</th><th class="num">Desp. Adm.</th><th class="num">Custo Real</th><th class="num">Fat. Proporcional</th><th class="num">% Participação</th></tr></thead>
             <tbody id="eq-linha-table-body"></tbody>
             <tfoot id="eq-linha-table-foot"></tfoot>
           </table>
@@ -2046,6 +2046,42 @@ td.client-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; wh
             </table>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Lançamentos que compõem uma Linha de Equipamento (aberto a partir
+     do ícone 🔎 de cada linha do quadro "Custo por Linha de Equipamento") -->
+<div class="client-modal" id="eq-linha-detalhe-modal" style="z-index:1300" onclick="if (event.target === this) closeEqLinhaDetalhe()">
+  <div class="client-modal-panel" style="width:min(1100px, 100%)">
+    <div class="client-modal-header">
+      <div class="client-modal-title">
+        <h3 id="eq-linha-detalhe-title">🔬 Lançamentos da Linha</h3>
+        <div class="client-modal-subtitle"><span id="eq-linha-detalhe-meta"></span></div>
+      </div>
+      <div class="client-modal-actions">
+        <button class="client-modal-btn primary" onclick="exportEqLinhaDetalhePDF()">🖨️ PDF A4 (paisagem)</button>
+        <button class="client-modal-btn ghost" onclick="closeEqLinhaDetalhe()">✕ Fechar</button>
+      </div>
+    </div>
+    <div class="client-modal-body">
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:.75rem">
+        Lançamentos de <strong>Insumos</strong> e <strong>Aluguéis</strong> classificados nesta Linha, dentro do
+        recorte de Empresa/Ano/Mês/Cliente atualmente selecionado no modal "Lucratividade por Linha de
+        Equipamentos" — a mesma base que compõe os valores da linha desta Linha no quadro "Custo por Linha de
+        Equipamento".
+      </p>
+      <div class="client-summary-grid" id="eq-linha-detalhe-kpi-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:1rem"></div>
+      <div style="overflow:auto;max-height:460px">
+        <table class="client-detail-table" id="eq-linha-detalhe-table">
+          <thead>
+            <tr>
+              <th>Tipo</th><th>Data</th><th>Cliente</th><th>Empresa</th><th>NF-e / Fatura</th><th>Produto</th><th class="num">Valor</th>
+            </tr>
+          </thead>
+          <tbody id="eq-linha-detalhe-table-body"></tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -2836,7 +2872,16 @@ function handleFile(file) {
       const linhasLookup = processLinhasLookup(wb);
       PRODUTO_LINHA_MAP = linhasLookup.exato;
       PRODUTO_LINHA_BASE_MAP = linhasLookup.base;
-      insumosEquipItemsRaw = processInsumosEquip(wb);
+      // ✅ Clientes marcados como "NÃO CLIENTE" (não devem participar do
+      // cálculo das métricas) em Faturamento/Receitas/Custo de Vendas —
+      // a aba "Insumos" não tem essa coluna de sinalização, então sem
+      // este filtro esses clientes continuariam entrando no módulo
+      // "Lucratividade por Linha de Equipamentos" via Insumos mesmo
+      // estando marcados para exclusão em outra aba (ver
+      // buildClientesNaoParticipantes).
+      const clientesNaoParticipantes = buildClientesNaoParticipantes(wb);
+      insumosEquipItemsRaw = processInsumosEquip(wb)
+        .filter(it => !clientesNaoParticipantes.has(it.cliente));
       reclassifyInsumosEquip();
       alugueisEquipRaw = processAlugueisEquip(wb);
       updateImportOverlay('Calculando resultados…');
@@ -3004,6 +3049,51 @@ function fk(obj, ...keys) {
     }
   }
   return null;
+}
+
+/* Universo de clientes marcados como "NÃO CLIENTE" (não devem participar
+   do cálculo das métricas) em QUALQUER uma das abas que trazem esse
+   sinalizador — Faturamento/Receitas (coluna "NÃO CLIENTE") e Custo de
+   Vendas (coluna sem cabeçalho, índice 8 — mesmo critério já usado em
+   processWorkbook() para excluir essas linhas do Faturamento/Receita
+   Liquidada/Custo dos Insumos do dashboard principal). Diferente daquela
+   exclusão (que descarta só a LINHA marcada, dentro da própria aba), esta
+   função identifica o CLIENTE como um todo — usada para também excluir
+   os lançamentos desse cliente na aba "Insumos" (módulo "Lucratividade
+   por Linha de Equipamentos"), que não tem essa coluna de sinalização e
+   por isso continuaria trazendo o cliente mesmo ele estando marcado como
+   "não deve participar" em outra aba. */
+function buildClientesNaoParticipantes(wb) {
+  const set = new Set();
+  const isFlagged = (v) => {
+    if (v === null || v === undefined) return false;
+    if (typeof v === 'string') return v.trim() !== '';
+    return true;
+  };
+  ['Faturamento', 'Receitas'].forEach(sheetName => {
+    if (!wb.Sheets[sheetName]) return;
+    readSheet(wb, sheetName).forEach(r => {
+      if (isFlagged(fk(r, 'NÃO CLIENTE', 'NAO CLIENTE', 'Não Cliente', 'Nao Cliente'))) {
+        const c = canonCliente(fk(r, 'CLIENTE'));
+        if (c) set.add(c);
+      }
+    });
+  });
+  const vendasWs = wb.Sheets['Custo de Vendas'] || wb.Sheets['Vendas'];
+  if (vendasWs) {
+    const aoa = XLSX.utils.sheet_to_json(vendasWs, { header: 1, defval: null, raw: true });
+    const header = (aoa[0] || []).map(h => (h == null ? '' : String(h)));
+    aoa.slice(1).forEach(row => {
+      if (!Array.isArray(row) || !row.length) return;
+      if (isFlagged(row[8])) {
+        const obj = {};
+        header.forEach((h, i) => { if (h) obj[h] = row[i]; });
+        const c = canonCliente(fk(obj, 'Cliente', 'CLIENTE'));
+        if (c) set.add(c);
+      }
+    });
+  }
+  return set;
 }
 
 function showDashboardRecalc(message = 'Recalculando despesas administrativas e demonstrativos…', title = 'Atualizando dashboard') {
@@ -3451,19 +3541,19 @@ function processInsumosEquip(wb) {
   const aoa = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: null, raw: true });
   const out = [];
 
-  let cur = null; // nota em processamento: { cliente, empresa, year, month, valorLiquido, items:[{produto,valor}] }
+  let cur = null; // nota em processamento: { cliente, empresa, year, month, nfe, data, valorLiquido, items:[{produto,valor}] }
   const flushInvoice = () => {
     if (!cur) return;
     const items = cur.items;
     const sumItens = items.reduce((s,it) => s + (it.valor || 0), 0);
     if (!items.length || sumItens === 0) {
       out.push({ cliente: canonCliente(cur.cliente), clienteDisplay: cur.cliente, empresa: cur.empresa,
-                 year: cur.year, month: cur.month, produto: null, valor: cur.valorLiquido });
+                 year: cur.year, month: cur.month, nfe: cur.nfe, data: cur.data, produto: null, valor: cur.valorLiquido });
     } else {
       items.forEach(it => {
         const share = it.valor / sumItens;
         out.push({ cliente: canonCliente(cur.cliente), clienteDisplay: cur.cliente, empresa: cur.empresa,
-                   year: cur.year, month: cur.month, produto: it.produto, valor: cur.valorLiquido * share });
+                   year: cur.year, month: cur.month, nfe: cur.nfe, data: cur.data, produto: it.produto, valor: cur.valorLiquido * share });
       });
     }
     cur = null;
@@ -3486,6 +3576,8 @@ function processInsumosEquip(wb) {
         cliente: String(clienteRaw).trim(),
         empresa: empresaFromRazaoSocial(row[15]),
         year: d.getUTCFullYear(), month: d.getUTCMonth() + 1,
+        nfe: row[0] != null ? String(row[0]).trim() : '',
+        data: d,
         valorLiquido: valorTotal - valorDesc,
         items: [],
       };
@@ -3519,7 +3611,8 @@ function reclassifyInsumosEquip() {
   insumosEquipItemsRaw.forEach(it => {
     const linha = classifyLinha(it.produto);
     insumosEquipRaw.push({ cliente: it.cliente, clienteDisplay: it.clienteDisplay, empresa: it.empresa,
-                            year: it.year, month: it.month, linha, valor: it.valor });
+                            year: it.year, month: it.month, linha, valor: it.valor,
+                            produto: it.produto, nfe: it.nfe, data: it.data });
     if (linha === 'NÃO CLASSIFICADO' && it.produto) {
       eqUnclassified[it.produto] = (eqUnclassified[it.produto] || 0) + it.valor;
     }
@@ -3537,6 +3630,7 @@ function processAlugueisEquip(wb) {
   return readSheet(wb, 'Aluguéis').map(r => {
     const clienteRaw = fk(r, 'CLIENTE');
     const d = toDate(fk(r, 'EMISSÃO', 'EMISSAO'));
+    const faturaRaw = fk(r, 'FATURA');
     return {
       cliente: canonCliente(clienteRaw),
       clienteDisplay: clienteRaw ? String(clienteRaw).trim() : '',
@@ -3545,6 +3639,8 @@ function processAlugueisEquip(wb) {
       month: d ? d.getUTCMonth() + 1 : null,
       linha: canonLinha(fk(r, 'LINHA')),
       valor: toNum(fk(r, 'VALOR')),
+      fatura: faturaRaw != null ? String(faturaRaw).trim() : '',
+      data: d,
     };
   }).filter(r => r.cliente && r.year && r.month);
 }
@@ -7284,8 +7380,19 @@ function buildEqFilterOptions() {
   const linhasExtras = [...linhasPresentes].filter(l => !LINE_NAMES.includes(l)).sort();
   eqAllValues.eqLinha = linhasConhecidas.concat(linhasExtras);
 
-  eqFilters.eqEmpresa = new Set(eqAllValues.eqEmpresa);
-  eqFilters.eqAno     = new Set(eqAllValues.eqAno);
+  // ✅ Filtro inicial: por padrão o modal abre já restrito a Empresa =
+  // Diag Rio + Labmedic (exclui Novatest, que não faz parte do escopo
+  // rotineiro desta análise) e Ano = ano corrente — evita abrir o modal
+  // com TODO o histórico somado (todas as empresas/anos) e o usuário
+  // precisar lembrar de filtrar toda vez. Ambos continuam totalmente
+  // ajustáveis pelo usuário depois de abertos; se por algum motivo a
+  // empresa/ano padrão não existir nos dados importados (ex.: planilha
+  // sem DIAG RIO/LABMEDIC ou sem o ano corrente), cai de volta para
+  // "selecionar tudo" nesse filtro, para nunca abrir o modal vazio.
+  const eqEmpresaPadrao = eqAllValues.eqEmpresa.filter(e => e === 'DIAG RIO' || e === 'LABMEDIC');
+  eqFilters.eqEmpresa = new Set(eqEmpresaPadrao.length ? eqEmpresaPadrao : eqAllValues.eqEmpresa);
+  const anoCorrente = new Date().getFullYear();
+  eqFilters.eqAno     = new Set(eqAllValues.eqAno.includes(anoCorrente) ? [anoCorrente] : eqAllValues.eqAno);
   eqFilters.eqMes     = new Set(eqAllValues.eqMes);
   eqFilters.eqCliente = new Set(eqAllValues.eqCliente);
   eqFilters.eqLinha   = new Set(eqAllValues.eqLinha);
@@ -7632,6 +7739,14 @@ function buildEqClientAgg() {
   // R$ 0,00 induzindo à leitura de que há dado faltando. Com "Todas as
   // Linhas" selecionado (comportamento padrão), nada muda: todo cliente
   // com Faturamento continua aparecendo normalmente.
+  // ✅ Remove clientes sem NENHUM volume no cenário filtrado — Faturamento,
+  // Insumos e Aluguéis todos nulos/zerados (tolerância de poucos centavos
+  // para arredondamento). Esses clientes só apareciam no mapa por terem
+  // algum lançamento cujo valor líquido, após os filtros de Empresa/Ano/
+  // Mês, resultava em zero (ex.: item com valor zerado ou nota com
+  // desconto integral) — sem nenhum dado real para compor a análise,
+  // ficavam como linhas "fantasma" na tabela "Lucratividade por Cliente".
+  .filter(c => Math.abs(c.fat) > 0.005 || Math.abs(c.insumos) > 0.005 || Math.abs(c.alugueis) > 0.005)
   .filter(c => {
     const linhaFiltroAtivo = eqFilters.eqLinha.size > 0 && eqFilters.eqLinha.size < eqAllValues.eqLinha.length;
     if (!linhaFiltroAtivo) return true;
@@ -7892,6 +8007,7 @@ function renderEqModal() {
   if (tbodyLinha) {
     tbodyLinha.innerHTML = linhaRows.map(r => `
       <tr>
+        <td><button type="button" class="pat-client-detail-btn eq-linha-detail-btn" data-linha="${escapeHtml(r.linha)}" title="Ver lançamentos desta Linha">🔎</button></td>
         <td>${escapeHtml(r.linha)}</td>
         <td class="num">${fmtR(r.insumos)}</td>
         <td class="num" style="color:var(--purple)">${fmtR(r.alugueis)}</td>
@@ -7922,6 +8038,7 @@ function renderEqModal() {
     const totalLinhaPct = totalFat > 0 ? totalLinhaCustoReal / totalFat : 0;
     tfootLinha.innerHTML = `
       <tr class="totals-row">
+        <td></td>
         <td class="totals-label">TOTAL</td>
         <td class="num">${fmtR(totalLinhaInsumos)}</td>
         <td class="num" style="color:var(--purple)">${fmtR(totalLinhaAlugueis)}</td>
@@ -8054,6 +8171,253 @@ function closeEqModal() {
   if (modal) modal.classList.remove('open');
   document.querySelectorAll('#eq-modal .ms-dropdown.open').forEach(d => d.classList.remove('open'));
   document.querySelectorAll('#eq-modal .ms-trigger.open').forEach(d => d.classList.remove('open'));
+}
+
+/* Delegação de clique no corpo da tabela "Custo por Linha de Equipamento":
+   captura cliques no ícone 🔎 (.eq-linha-detail-btn) de qualquer linha,
+   mesmo após o tbody ser reconstruído via innerHTML a cada renderEqModal —
+   mesmo padrão já usado em initPatClienteDetailDelegation() para o modal
+   de Patrimônio. Registrado uma única vez. */
+(function initEqLinhaDetailDelegation() {
+  const tbody = document.getElementById('eq-linha-table-body');
+  if (!tbody) return;
+  tbody.addEventListener('click', e => {
+    const btn = e.target.closest('.eq-linha-detail-btn');
+    if (!btn) return;
+    openEqLinhaDetalhe(btn.dataset.linha || '');
+  });
+})();
+
+/* ══════════════════════════════════════════════════════
+   MODAL — LANÇAMENTOS DE UMA LINHA (Insumos + Aluguéis)
+   Aberto pelo ícone 🔎 de cada linha do quadro "Custo por Linha de
+   Equipamento" — mostra os lançamentos individuais (notas de Insumos e
+   faturas de Aluguéis) que compõem os totais daquela Linha, dentro do
+   MESMO recorte de Empresa/Ano/Mês/Cliente ativo no modal principal
+   (eqFilters). Usa correspondência EXATA à Linha clicada (em vez do Set
+   eqFilters.eqLinha, que pode conter várias linhas selecionadas) — assim
+   os lançamentos exibidos aqui somam exatamente o Insumos/Aluguéis dessa
+   linha da tabela "Custo por Linha de Equipamento", célula a célula.
+══════════════════════════════════════════════════════ */
+let eqLinhaDetalheLinha = '';
+let eqLinhaDetalheRows  = [];
+
+function getEqLinhaLancamentos(linha) {
+  const matchBase = r =>
+    r.linha === linha &&
+    eqFilters.eqEmpresa.has(r.empresa) &&
+    eqFilters.eqAno.has(r.year) &&
+    eqFilters.eqMes.has(r.month) &&
+    eqFilters.eqCliente.has(r.cliente);
+  const insumos = insumosEquipRaw.filter(matchBase).map(r => ({
+    tipo: 'Insumo',
+    data: r.data instanceof Date ? r.data : null,
+    cliente: eqClienteDisplayByKey[r.cliente] || r.clienteDisplay || r.cliente,
+    empresa: r.empresa,
+    documento: r.nfe || '—',
+    produto: r.produto || '—',
+    valor: r.valor,
+  }));
+  const alugueis = alugueisEquipRaw.filter(matchBase).map(r => ({
+    tipo: 'Aluguel',
+    data: r.data instanceof Date ? r.data : null,
+    cliente: eqClienteDisplayByKey[r.cliente] || r.clienteDisplay || r.cliente,
+    empresa: r.empresa,
+    documento: r.fatura || '—',
+    produto: '—',
+    valor: r.valor,
+  }));
+  return insumos.concat(alugueis).sort((a, b) => {
+    const da = a.data ? a.data.getTime() : 0, db = b.data ? b.data.getTime() : 0;
+    if (db !== da) return db - da;
+    return (b.valor || 0) - (a.valor || 0);
+  });
+}
+
+function openEqLinhaDetalhe(linha) {
+  if (!linha) return;
+  eqLinhaDetalheLinha = linha;
+  eqLinhaDetalheRows  = getEqLinhaLancamentos(linha);
+  renderEqLinhaDetalheModal();
+  document.getElementById('eq-linha-detalhe-modal').classList.add('open');
+}
+function closeEqLinhaDetalhe() {
+  const modal = document.getElementById('eq-linha-detalhe-modal');
+  if (modal) modal.classList.remove('open');
+}
+
+function renderEqLinhaDetalheModal() {
+  const rows  = eqLinhaDetalheRows;
+  const linha = eqLinhaDetalheLinha;
+
+  const titleEl = document.getElementById('eq-linha-detalhe-title');
+  if (titleEl) titleEl.textContent = `🔬 Lançamentos — ${linha}`;
+
+  const totalInsumos  = rows.filter(r => r.tipo === 'Insumo').reduce((s, r) => s + r.valor, 0);
+  const totalAlugueis = rows.filter(r => r.tipo === 'Aluguel').reduce((s, r) => s + r.valor, 0);
+  const clientesDistintos = new Set(rows.map(r => r.cliente)).size;
+
+  const metaEl = document.getElementById('eq-linha-detalhe-meta');
+  if (metaEl) metaEl.textContent = `${rows.length.toLocaleString('pt-BR')} lançamento(s) · ${clientesDistintos.toLocaleString('pt-BR')} cliente(s)`;
+
+  const kpiGrid = document.getElementById('eq-linha-detalhe-kpi-grid');
+  if (kpiGrid) {
+    kpiGrid.innerHTML = [
+      eqKpiCard('Insumos', totalInsumos),
+      eqKpiCard('Aluguéis (informativo)', totalAlugueis, 'purple'),
+      `<div class="client-kpi"><div class="client-kpi-label">Lançamentos</div><div class="client-kpi-value">${rows.length.toLocaleString('pt-BR')}</div></div>`,
+    ].join('');
+  }
+
+  const tbody = document.getElementById('eq-linha-detalhe-table-body');
+  if (tbody) {
+    tbody.innerHTML = rows.length ? rows.map(r => `
+      <tr>
+        <td>${r.tipo === 'Insumo' ? '📦 Insumo' : '🏠 Aluguel'}</td>
+        <td>${r.data ? r.data.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
+        <td>${escapeHtml(r.cliente)}</td>
+        <td>${escapeHtml(r.empresa)}</td>
+        <td>${escapeHtml(r.documento)}</td>
+        <td style="max-width:280px;white-space:normal">${escapeHtml(r.produto)}</td>
+        <td class="num">${fmtR(r.valor)}</td>
+      </tr>`).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem">Nenhum lançamento encontrado para esta Linha no filtro atual.</td></tr>`;
+  }
+}
+
+/* Gera um PDF profissional (A4 paisagem) com os lançamentos exibidos no
+   modal de detalhe da Linha — mesmo layout/identidade visual e mesma
+   infraestrutura de impressão (printReportDocument) já usados no PDF de
+   detalhe de Cliente/Unidade do módulo de Patrimônio
+   (exportPatClienteDetalhesPDF), adaptado às colunas de lançamento
+   (Tipo/Data/Cliente/Empresa/Documento/Produto/Valor). */
+function exportEqLinhaDetalhePDF() {
+  const rows  = eqLinhaDetalheRows;
+  const linha = eqLinhaDetalheLinha;
+  const now = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const fileName = document.getElementById('file-name-display').textContent;
+
+  const totalInsumos  = rows.filter(r => r.tipo === 'Insumo').reduce((s, r) => s + r.valor, 0);
+  const totalAlugueis = rows.filter(r => r.tipo === 'Aluguel').reduce((s, r) => s + r.valor, 0);
+  const clientesDistintos = new Set(rows.map(r => r.cliente)).size;
+
+  const fEmp = [...eqFilters.eqEmpresa].join(', ') || '—';
+  const fAno = [...eqFilters.eqAno].sort().join(', ') || '—';
+  const fMes = [...eqFilters.eqMes].sort((a, b) => a - b).map(m => MESES[m]).join(', ') || '—';
+  const fCli = eqFilters.eqCliente.size === eqAllValues.eqCliente.length ? 'Todos' : `${eqFilters.eqCliente.size} selecionados`;
+
+  const clienteBreakdown = (() => {
+    const map = {};
+    rows.forEach(r => { const k = r.cliente || '—'; map[k] = (map[k] || 0) + r.valor; });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  })();
+  const breakdownRows = clienteBreakdown.map(([lbl, valor], i) => `
+    <tr class="${i % 2 === 0 ? 'even' : ''}"><td>${escapeHtml(lbl)}</td><td class="r">${fmtR(valor)}</td></tr>`).join('');
+
+  const tableRows = rows.length ? rows.map((r, i) => `
+    <tr class="${i % 2 === 0 ? 'even' : ''}">
+      <td>${r.tipo === 'Insumo' ? 'Insumo' : 'Aluguel'}</td>
+      <td class="c">${r.data ? r.data.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'}</td>
+      <td>${escapeHtml(r.cliente)}</td>
+      <td>${escapeHtml(r.empresa)}</td>
+      <td>${escapeHtml(r.documento)}</td>
+      <td>${escapeHtml(r.produto)}</td>
+      <td class="r">${fmtR(r.valor)}</td>
+    </tr>`).join('') : `<tr><td colspan="7" style="text-align:center;color:#94A3B8;padding:14px">Nenhum lançamento encontrado para esta Linha no filtro atual.</td></tr>`;
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head>
+  <meta charset="UTF-8">
+  <title>Grupo Labmedic — Lançamentos — ${escapeHtml(linha)}</title>
+  <style>
+    @page { size: A4 landscape; margin: 12mm 14mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 8.5pt; color: #1a202c; background: #fff; }
+    .header { display:flex; justify-content:space-between; align-items:flex-end; padding-bottom:8px; border-bottom:2.5px solid #1B3A6B; margin-bottom:12px; }
+    .header-left h1 { font-size:15pt; font-weight:800; color:#1B3A6B; letter-spacing:-.3px; }
+    .header-left p  { font-size:8pt; color:#64748b; margin-top:2px; }
+    .header-right   { text-align:right; font-size:7.5pt; color:#64748b; line-height:1.5; }
+    .kpi-row { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:12px; }
+    .kpi { background:#F8FAFC; border:1px solid #E2E8F0; border-radius:6px; padding:7px 9px; }
+    .kpi-label { font-size:6.5pt; color:#94A3B8; text-transform:uppercase; letter-spacing:.04em; margin-bottom:2px; }
+    .kpi-val   { font-size:10pt; font-weight:800; color:#1B3A6B; line-height:1.1; }
+    .section-title { font-size:9pt; font-weight:700; color:#1B3A6B; border-left:3px solid #3B82F6; padding-left:7px; margin:12px 0 6px; }
+    table { width:100%; border-collapse:collapse; font-size:7.5pt; }
+    thead th { background:#1B3A6B; color:#fff; padding:5px 6px; font-weight:700; font-size:7pt; text-align:left; white-space:nowrap; }
+    thead th.r { text-align:right; }
+    thead th.c { text-align:center; }
+    tbody tr.even td { background:#F8FAFC; }
+    tbody td { padding:4px 6px; border-bottom:1px solid #E2E8F0; vertical-align:middle; }
+    td.r { text-align:right; font-variant-numeric:tabular-nums; }
+    td.c { text-align:center; }
+    .footer { border-top:1px solid #E2E8F0; padding-top:6px; margin-top:10px; display:flex; justify-content:space-between; font-size:6.5pt; color:#94A3B8; }
+    tr { page-break-inside: avoid; break-inside: avoid; }
+    thead { display: table-header-group; }
+    .kpi-row, .kpi, .header { page-break-inside: avoid; break-inside: avoid; }
+    .section-title { page-break-after: avoid; break-after: avoid-page; }
+    table.print-shell { width:100%; border-collapse:collapse; }
+    table.print-shell > thead > tr > td,
+    table.print-shell > tbody > tr > td { padding:0; border:none; }
+    .print-running-header {
+      display:flex; justify-content:space-between; align-items:center; gap:12px;
+      font-size:7.5pt; color:#64748b; padding-bottom:6px; margin-bottom:10px;
+      border-bottom:1px solid #E2E8F0;
+    }
+    .print-running-header strong { color:#1B3A6B; font-weight:800; }
+  </style>
+</head><body>
+
+<table class="print-shell">
+<thead><tr><td>
+  <div class="print-running-header">
+    <span><strong>Grupo Labmedic</strong> — Lançamentos — ${escapeHtml(linha)}</span>
+    <span>${escapeHtml(fileName)} • Gerado em ${now}</span>
+  </div>
+</td></tr></thead>
+<tbody><tr><td>
+
+<div class="header">
+  <div class="header-left">
+    <h1>Grupo Labmedic — Lançamentos da Linha de Equipamento</h1>
+    <p>${escapeHtml(linha)}</p>
+    <p>Fonte: ${escapeHtml(fileName)} &nbsp;|&nbsp; Gerado em: ${now}</p>
+  </div>
+  <div class="header-right">
+    <div><strong>Empresa:</strong> ${escapeHtml(fEmp)} &nbsp;|&nbsp; <strong>Ano:</strong> ${escapeHtml(fAno)}</div>
+    <div><strong>Mês:</strong> ${escapeHtml(fMes)}</div>
+    <div><strong>Cliente:</strong> ${escapeHtml(fCli)}</div>
+  </div>
+</div>
+
+<div class="kpi-row">
+  <div class="kpi"><div class="kpi-label">Insumos</div><div class="kpi-val">${fmtR(totalInsumos)}</div></div>
+  <div class="kpi"><div class="kpi-label">Aluguéis (informativo)</div><div class="kpi-val">${fmtR(totalAlugueis)}</div></div>
+  <div class="kpi"><div class="kpi-label">Clientes distintos</div><div class="kpi-val">${clientesDistintos.toLocaleString('pt-BR')}</div></div>
+</div>
+
+<div class="section-title">Maiores Clientes na Linha — Top 10</div>
+<table style="margin-bottom:12px">
+  <thead><tr><th>Cliente</th><th class="r">Valor</th></tr></thead>
+  <tbody>${breakdownRows}</tbody>
+</table>
+
+<div class="section-title">Lançamentos (${rows.length.toLocaleString('pt-BR')} registro(s))</div>
+<table>
+  <thead><tr>
+    <th>Tipo</th><th class="c">Data</th><th>Cliente</th><th>Empresa</th><th>NF-e / Fatura</th><th>Produto</th><th class="r">Valor</th>
+  </tr></thead>
+  <tbody>${tableRows}</tbody>
+</table>
+
+<div class="footer">
+  <span>Grupo Labmedic - Ambiente Confidencial</span>
+  <span>${escapeHtml(fileName)} • Gerado em ${now}</span>
+</div>
+
+</td></tr></tbody>
+</table>
+
+</body></html>`;
+
+  printReportDocument(html, `Grupo Labmedic_Lancamentos_${slugify(linha)}_${now.replace(/[^0-9a-zA-Z]+/g,'-')}`);
 }
 
 /* ══════════════════════════════════════════════════════
